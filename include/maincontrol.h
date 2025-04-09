@@ -1,10 +1,12 @@
 #ifndef MAINCONTROL_H
 #define MAINCONTROL_H
 
-#include <memory>
-#include <fileutil.h>
-#include <vector>
 #include <filelistmodel.h>
+#include <fileutil.h>
+#include <image.h>
+
+#include <memory>
+#include <vector>
 
 class MainControl {
  private:
@@ -19,6 +21,8 @@ class MainControl {
   std::vector<fs::path> getFileList() const;
   void goBack();
   void goForward();
+
+  ImageData getImageData(const fs::path& filename) const;
 };
 
 using MainControl_t = std::shared_ptr<MainControl>;

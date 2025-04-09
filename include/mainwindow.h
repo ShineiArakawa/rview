@@ -26,8 +26,8 @@ class MainWindow : public QMainWindow {
 
  private slots:
   void on_currentDirPath_returnPressed();
-
   void on_fileListWidget_itemDoubleClicked(QListWidgetItem *item);
+  void on_fileListWidget_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
 
  private:
   Ui::MainWindow *_ui;
@@ -37,6 +37,7 @@ class MainWindow : public QMainWindow {
   void updateFileList();
   void goBack();
   void goForward();
+  void updateImage(const ImageData &imageData);
 };
 
 #endif  // MAINWINDOW_H

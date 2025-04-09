@@ -6,8 +6,30 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
+
+# --------------------------------------------------------------------
+# C++ settings
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE on)
+
+include(InstallRequiredSystemLibraries)
+
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to 'Release' as none was specified.")
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+if(MSVC)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
+elseif(UNIX)
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wall")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+endif()
 
 # --------------------------------------------------------------------
 # Find libraries
@@ -29,7 +51,10 @@ find_package(OpenCV REQUIRED)
 
 # --------------------------------------------------------------------
 # Set up the build environment
-set(TS_FILES resource/RView_ja_JP.ts)
+set(
+    TS_FILES
+    resource/RView_ja_JP.ts
+)
 
 set(
     PROJECT_SOURCES
@@ -48,6 +73,12 @@ set(
     src/glwidget.cpp
     include/glwidget.h
     # -------------------------------------------------------
+    # shaders
+    include/shaders.h
+    # -------------------------------------------------------
+    # image
+    include/image.h
+    # --------------------------------------------------------
     # tranlation
     ${TS_FILES}
 )
@@ -110,8 +141,13 @@ target_link_libraries(
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
 if(${QT_VERSION} VERSION_LESS 6.1.0)
-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.${PROJECT_NAME})
+    set(
+        BUNDLE_ID_OPTION
+        MACOSX_BUNDLE_GUI_IDENTIFIER
+        com.example.${PROJECT_NAME}
+    )
 endif()
+
 set_target_properties(
     ${PROJECT_NAME}
     PROPERTIES

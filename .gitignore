@@ -1,3 +1,7 @@
+.cache
+build
+.vscode
+
 # ------------------------------------
 # For CMake projects
 CMakeLists.txt.user

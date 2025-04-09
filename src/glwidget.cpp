@@ -1,27 +1,62 @@
-#include "glwidget.h"
+#include <glwidget.h>
+#include <shaders.h>
 
-#include <opencv2/opencv.hpp>
 #include <vector>
 
 GLWidget::GLWidget(QWidget *parent)
     : QOpenGLWidget(parent),
       _program(nullptr),
-      _vaoId(),
-      _vertexBufferId(),
-      _indexBufferId() {
+      _vao(),
+      _vertexBuffer(QOpenGLBuffer::VertexBuffer),
+      _indexBuffer(QOpenGLBuffer::IndexBuffer),
+      _texture(nullptr),
+      _textureSize(100, 100),
+      _glFunctions(nullptr) {
 }
 
 GLWidget::~GLWidget() {
   makeCurrent();
-  glDeleteBuffers(1, &_vertexBufferId);
-  glDeleteBuffers(1, &_indexBufferId);
-  glBindVertexArray(0);
-  free(_program);
+
+  _program->release();
+  _vertexBuffer.release();
+  _indexBuffer.release();
+  _vao.release();
+  _texture->release();
+
+  _program->deleteLater();
+  _program->removeAllShaders();
+  _texture->destroy();
+  _vertexBuffer.destroy();
+  _indexBuffer.destroy();
+  _vao.destroy();
+
+  delete _texture;
+  delete _program;
+
   doneCurrent();
 }
 
 void GLWidget::initializeGL() {
-  initializeOpenGLFunctions();
+  // ------------------------------------------------------------------------------------------
+  // Initialize OpenGL functions
+  _glFunctions = QOpenGLContext::currentContext()->functions();
+  if (_glFunctions == nullptr) {
+    qDebug() << "Failed to get OpenGL functions";
+    return;
+  }
+
+  _glFunctions->initializeOpenGLFunctions();
+
+  // -----------------------------------------------------------------------------
+  // Build the shader program
+
+  _program = new QOpenGLShaderProgram();
+
+  _program->addShaderFromSourceCode(QOpenGLShader::Vertex, DefaultShader::VERTEX_SHADER_CODE);
+  _program->addShaderFromSourceCode(QOpenGLShader::Fragment, DefaultShader::FRAGMENT_SHADER_CODE);
+
+  _program->link();
+  _program->bind();
 
   // -----------------------------------------------------------------------------
   // Create a quad
@@ -45,202 +80,157 @@ void GLWidget::initializeGL() {
       5,
   };
 
-  glGenVertexArrays(1, &_vaoId);
-  glBindVertexArray(_vaoId);
+  // -----------------------------------------------------------------------------
+  // Create the vertex array object
+  _vao.create();
+  _vao.bind();
 
-  glGenBuffers(1, &_vertexBufferId);
-  glBindBuffer(GL_ARRAY_BUFFER, _vertexBufferId);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+  // Vertex buffer object
+  _vertexBuffer.create();
+  _vertexBuffer.bind();
 
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+  _vertexBuffer.setUsagePattern(QOpenGLBuffer::StaticDraw);
+  _vertexBuffer.allocate(vertices.data(), sizeof(Vertex) * vertices.size());
 
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+  _program->enableAttributeArray(0);
+  _glFunctions->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
 
-  glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, uv));
+  _program->enableAttributeArray(1);
+  _glFunctions->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
 
-  glGenBuffers(1, &_indexBufferId);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBufferId);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * indices.size(), indices.data(), GL_STATIC_DRAW);
+  _program->enableAttributeArray(2);
+  _glFunctions->glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, uv));
 
-  glBindVertexArray(0);
+  // Index buffer object
+  _indexBuffer.create();
+  _indexBuffer.bind();
+
+  _indexBuffer.setUsagePattern(QOpenGLBuffer::StaticDraw);
+  _indexBuffer.allocate(indices.data(), sizeof(uint32_t) * indices.size());
+
+  // Unbind the buffers
+  _vao.release();
 
   // -----------------------------------------------------------------------------
   // Load the texture
-  glEnable(GL_TEXTURE_2D);
+  _glFunctions->glEnable(GL_TEXTURE_2D);
 
-  glGenTextures(1, &_textureId);
-  glBindTexture(GL_TEXTURE_2D, _textureId);
+  // https://www.badprog.com/c-qt-framework-using-opengl-vao-and-vbo-to-handle-2-different-objects-on-the-scene
+  _texture = new QOpenGLTexture(QOpenGLTexture::Target2D);
+  _texture->create();
+  _texture->bind();
+  _texture->setFormat(QOpenGLTexture::RGBA32F);
+  _texture->setSize(_textureSize.x, _textureSize.y);
+  _texture->setMinificationFilter(QOpenGLTexture::Linear);
+  _texture->setMagnificationFilter(QOpenGLTexture::Linear);
+  _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
+  _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
 
-#if defined(USE_FLOAT_TEXTURE)
-  glTexImage2D(/* GLenum target */ GL_TEXTURE_2D,
-               /* GLint level */ 0,
-               /* GLint internalformat */ GL_RGBA32F,
-               /* GLsizei width */ width(),
-               /* GLsizei height */ height(),
-               /* GLint border */ 0,
-               /* GLenum format */ GL_RGBA,
-               /* GLenum type */ GL_FLOAT,
-               /* const GLvoid* pixels */ nullptr);
-#else
-  glTexImage2D(GL_TEXTURE_2D,
-               0,
-               GL_RGBA8,
-               width(),
-               height(),
-               0,
-               GL_RGBA,
-               GL_UNSIGNED_BYTE,
-               nullptr);
-#endif
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-#if defined(USE_FLOAT_TEXTURE)
-  // Avoid mipmaps for float textures
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  // Avoid mipmaps for float textures
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-#else
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glGenerateMipmap(GL_TEXTURE_2D);
-#endif
-
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // -----------------------------------------------------------------------------
-  // Build the shader program
-
-  _program = new QOpenGLShaderProgram();
-  _program->addShaderFromSourceCode(QOpenGLShader::Vertex, R"(
-        #version 410 core
-
-        layout(location = 0) in vec3 in_position;
-        layout(location = 1) in vec3 in_color;
-        layout(location = 2) in vec2 in_uv;
-
-        out vec3 f_color;
-        out vec2 f_uv;
-
-        void main() {
-          f_color = in_color;
-          f_uv = in_uv;
-          gl_Position = vec4(in_position, 1.0);
-        }
-    )");
-  _program->addShaderFromSourceCode(QOpenGLShader::Fragment, R"(
-        #version 410 core
-
-        in vec3 f_color;
-        in vec2 f_uv;
-
-        uniform sampler2D u_texture;
-        uniform vec2 u_pixelSize;
-
-        out vec4 out_color;
-
-        void main() {
-          // out_color = texture(u_texture, f_uv);
-
-          out_color = vec4(0.0, 0.0, 0.0, 1.0);
-
-          // 角の1ピクセルだけ色を塗る
-          if (
-              (f_uv.x < u_pixelSize.x && f_uv.y < u_pixelSize.y) ||
-              (f_uv.x > 1.0 - u_pixelSize.x && f_uv.y < u_pixelSize.y) ||
-              (f_uv.x < u_pixelSize.x && f_uv.y > 1.0 - u_pixelSize.y) ||
-              (f_uv.x > 1.0 - u_pixelSize.x && f_uv.y > 1.0 - u_pixelSize.y)
-          ) {
-            out_color = vec4(1.0, 1.0, 1.0, 1.0);
-          }
-        }
-    )");
-
-  _program->link();
-  _program->bind();
+  // White texture
+  cv::Mat whiteImage(_textureSize.y, _textureSize.x, CV_32FC4, cv::Scalar(1.0f, 1.0f, 1.0f, 1.0f));
+  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, whiteImage.data);
+  _texture->release();
 }
 
 void GLWidget::resizeGL(int w, int h) {
-  glViewport(0, 0, w, h);
-
-  // Update the texture size
-  glBindTexture(GL_TEXTURE_2D, _textureId);
-#if defined(USE_FLOAT_TEXTURE)
-  glTexImage2D(/* GLenum target */ GL_TEXTURE_2D,
-               /* GLint level */ 0,
-               /* GLint internalformat */ GL_RGBA32F,
-               /* GLsizei width */ w,
-               /* GLsizei height */ h,
-               /* GLint border */ 0,
-               /* GLenum format */ GL_RGBA,
-               /* GLenum type */ GL_FLOAT,
-               /* const GLvoid* pixels */ nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  // Avoid mipmaps for float textures
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-#else
-  glTexImage2D(GL_TEXTURE_2D,
-               0,
-               GL_RGBA8,
-               w,
-               h,
-               0,
-               GL_RGBA,
-               GL_UNSIGNED_BYTE,
-               nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glGenerateMipmap(GL_TEXTURE_2D);
-#endif
-
-  glBindTexture(GL_TEXTURE_2D, 0);
+  const qreal retinaScale = devicePixelRatio();
+  _glFunctions->glViewport(0, 0, w * retinaScale, h * retinaScale);
 }
 
 void GLWidget::paintGL() {
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  const qreal retinaScale = devicePixelRatio();
+  _glFunctions->glViewport(0, 0, width() * retinaScale, height() * retinaScale);
 
-  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+  _glFunctions->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  _glFunctions->glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-  glDisable(GL_DEPTH_TEST);
+  _glFunctions->glDisable(GL_DEPTH_TEST);
+
   {
     _program->bind();
+
     {
       // Activate the texture
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, _textureId);
+      _texture->bind();
       _program->setUniformValue("u_texture", 0);
 
       // Set the pixel size uniform
       _program->setUniformValue("u_pixelSize", 1.0f / width(), 1.0f / height());
 
-      glBindVertexArray(_vaoId);
-      glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-      glBindVertexArray(0);
+      _vao.bind();
+      _glFunctions->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+      _vao.release();
 
-      glBindTexture(GL_TEXTURE_2D, 0);
+      _texture->release();
     }
+
     _program->release();
   }
-  glEnable(GL_DEPTH_TEST);
+
+  _glFunctions->glEnable(GL_DEPTH_TEST);
 }
 
-void GLWidget::mousePressEvent(QMouseEvent* event)  {
+void GLWidget::mousePressEvent(QMouseEvent *event) {
   qDebug() << "Pressed: " << event->button();
 }
 
-void GLWidget::mouseMoveEvent(QMouseEvent* event) {
-qDebug() << "Moved: " << event->button();
+void GLWidget::mouseMoveEvent(QMouseEvent *event) {
+  qDebug() << "Moved: " << event->button();
 }
 
-void GLWidget::mouseReleaseEvent(QMouseEvent* event) {
-qDebug() << "Released: " << event->button();
+void GLWidget::mouseReleaseEvent(QMouseEvent *event) {
+  qDebug() << "Released: " << event->button();
+}
+
+void GLWidget::updateTexture(const cv::Mat &image) {
+  if (image.empty()) {
+    return;
+  }
+
+  // Convert the image to RGBA format
+  cv::Mat rgbaImage;
+  if (image.channels() == 1) {
+    cv::cvtColor(image, rgbaImage, cv::COLOR_GRAY2RGBA);
+  } else if (image.channels() == 3) {
+    cv::cvtColor(image, rgbaImage, cv::COLOR_BGR2RGBA);
+  } else if (image.channels() == 4) {
+    rgbaImage = image;
+  } else {
+    qDebug() << "Unsupported image format";
+    return;
+  }
+
+  // Convert the image to float32 format range [0, 1]
+  double minVal, maxVal;
+  cv::minMaxLoc(rgbaImage, &minVal, &maxVal);
+  rgbaImage.convertTo(rgbaImage, CV_32F, 1.0 / (maxVal - minVal), -minVal / (maxVal - minVal));
+
+  // Flip the image vertically
+  cv::flip(rgbaImage, rgbaImage, 0);
+
+  // Upload the texture data
+  _texture->bind();
+
+  if (_textureSize.x != rgbaImage.cols || _textureSize.y != rgbaImage.rows) {
+    _textureSize.x = rgbaImage.cols;
+    _textureSize.y = rgbaImage.rows;
+
+    _texture->destroy();
+    _texture->create();
+
+    _texture->bind();
+    _texture->setFormat(QOpenGLTexture::RGBA32F);
+    _texture->setSize(_textureSize.x, _textureSize.y);
+    _texture->setMinificationFilter(QOpenGLTexture::Linear);
+    _texture->setMagnificationFilter(QOpenGLTexture::Linear);
+    _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
+    _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
+    _texture->release();
+  }
+
+  _texture->bind();
+  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, rgbaImage.data);
+  _texture->release();
+
+  update();
 }

@@ -52,6 +52,9 @@
       </property>
       <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout">
+        <property name="spacing">
+         <number>2</number>
+        </property>
         <item>
          <widget class="QLineEdit" name="currentDirPath">
           <property name="sizePolicy">
@@ -117,6 +120,9 @@
          <height>0</height>
         </size>
        </property>
+       <property name="autoFillBackground">
+        <bool>false</bool>
+       </property>
       </widget>
      </widget>
     </item>
@@ -128,7 +134,7 @@
      <x>0</x>
      <y>0</y>
      <width>1000</width>
-     <height>43</height>
+     <height>21</height>
     </rect>
    </property>
   </widget>

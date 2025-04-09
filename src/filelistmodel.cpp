@@ -1,4 +1,7 @@
 #include <filelistmodel.h>
+#include <naturalsort/naturalorder.h>
+
+#include <algorithm>
 
 // -------------------------------------------------------------------------------------------------------------------
 // FileListModelBase
@@ -15,7 +18,7 @@ void FileListModelBase::setCurrentDir(const fs::path& dirPath) {
     }
 
     _dirPathHistory[_dirPathHistoryIndex] = dirPath;
-    _dirPathHistoryIndex = std::min(_dirPathHistoryIndex + 1, MAX_DIR_PATH_HISTORY_SIZE);
+    _dirPathHistoryIndex = min(_dirPathHistoryIndex + 1, MAX_DIR_PATH_HISTORY_SIZE);
   }
 }
 
@@ -52,13 +55,32 @@ void FileListModel::updateCurrentDir(const fs::path& dirPath) {
 }
 
 std::vector<fs::path> FileListModel::getFileList() const {
+  std::vector<fs::path> dirList;
   std::vector<fs::path> fileList;
 
   const auto dirPath = getCurrentDir();
 
   for (const auto& entry : fs::directory_iterator(dirPath)) {
-    fileList.push_back(entry.path());
+    const fs::path& path = entry.path();
+    if (fs::is_directory(path)) {
+      dirList.push_back(path);
+    } else {
+      fileList.push_back(path);
+    }
   }
+
+  // Sort the file list by natural order
+  // std::sort(dirList.begin(), dirList.end(), [](const fs::path& a, const fs::path& b) -> bool {
+  //     const std::string str_a = a.filename().string();
+  //     const std::string str_b = b.filename().string();
+  //     return (natural_compare(str_a, str_b) == 0); });
+  // std::sort(fileList.begin(), fileList.end(), [](const fs::path& a, const fs::path& b) -> bool {
+  //     const std::string str_a = a.filename().string();
+  //     const std::string str_b = b.filename().string();
+  //     return (natural_compare(str_a, str_b) == 0); });
+
+  // Combine the directory and file lists
+  fileList.insert(fileList.begin(), dirList.begin(), dirList.end());
 
   return fileList;
 }

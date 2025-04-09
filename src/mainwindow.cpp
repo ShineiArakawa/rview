@@ -2,48 +2,16 @@
 
 #include <QFileIconProvider>
 #include <algorithm>
+#include <cctype>
 
 #include "./ui_mainwindow.h"
-
-bool naturalSortComparator(const fs::path& a, const fs::path& b) {
-  auto aStr = a.filename().string();
-  auto bStr = b.filename().string();
-
-  auto ai = aStr.begin(), bi = bStr.begin();
-
-  while (ai != aStr.end() && bi != bStr.end()) {
-    if (std::isdigit(*ai) && std::isdigit(*bi)) {
-      int aNum = 0, bNum = 0;
-
-      while (ai != aStr.end() && std::isdigit(*ai)) {
-        aNum = aNum * 10 + (*ai - '0');
-        ++ai;
-      }
-      while (bi != bStr.end() && std::isdigit(*bi)) {
-        bNum = bNum * 10 + (*bi - '0');
-        ++bi;
-      }
-
-      if (aNum != bNum) {
-        return aNum < bNum;
-      }
-    }
-
-    else if (*ai != *bi) {
-      return *ai < *bi;
-    } else {
-      ++ai;
-      ++bi;
-    }
-  }
-
-  return aStr.size() < bStr.size();
-}
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
       _ui(new Ui::MainWindow),
       _control(std::make_shared<MainControl>()) {
+  // --------------------------------------------------------------------
+  // Set up ui
   _ui->setupUi(this);
 
   // ------------------------------------------------------------------------------------------
@@ -85,11 +53,7 @@ void MainWindow::updateFileList() {
 
   auto localFiles = _control->getFileList();
 
-  // Sort the file list by natural order
-  std::sort(localFiles.begin(), localFiles.end(), naturalSortComparator);
-
   _ui->fileListWidget->clear();
-
   _ui->fileListWidget->addItem(PATENT_DIR_REL_PATH);
 
   for (const auto& file : localFiles) {
@@ -104,11 +68,33 @@ void MainWindow::updateFileList() {
       }
     } catch (const std::filesystem::filesystem_error& e) {
       // Log the error or handle it accordingly
-      std::cerr << "Error accessing file: " << e.what() << std::endl;
+      qInfo() << "Error accessing file: " << e.what();
     }
   }
 }
 
+void MainWindow::goBack() {
+  _control->goBack();
+  updateCurrentDir(_control->getCurrentDir());
+}
+
+void MainWindow::goForward() {
+  _control->goForward();
+  updateCurrentDir(_control->getCurrentDir());
+}
+
+void MainWindow::updateImage(const ImageData& imageData) {
+  if (imageData.empty()) {
+    qInfo() << "Image data is empty";
+    return;
+  }
+
+  _ui->glwidget->updateTexture(imageData.image);
+}
+
+// ##############################################################################################################################
+// Slot functions
+// ##############################################################################################################################
 void MainWindow::on_currentDirPath_returnPressed() {
   const auto dirPath = fs::absolute(FileUtil::qStringToPath(_ui->currentDirPath->text()));
 
@@ -116,7 +102,7 @@ void MainWindow::on_currentDirPath_returnPressed() {
     updateCurrentDir(dirPath);
   } else {
     // Log the error or handle it accordingly
-    std::cerr << "Invalid directory path: " << FileUtil::pathToString(dirPath) << std::endl;
+    qInfo() << "Invalid directory path: " << FileUtil::pathToString(dirPath);
   }
 }
 
@@ -150,11 +136,11 @@ void MainWindow::on_fileListWidget_itemDoubleClicked(QListWidgetItem* item) {
       // Open the directory
       newDirPath = filePath;
     } else {
-      std::cout << "File is not a directory: " << FileUtil::pathToString(filePath) << std::endl;
+      qInfo() << "File is not a directory: " << FileUtil::pathToString(filePath) ;
     }
   } catch (const std::filesystem::filesystem_error& e) {
     // Log the error or handle it accordingly
-    std::cerr << "Error accessing file: " << e.what() << std::endl;
+    qInfo() << "Error accessing file: " << e.what() ;
   }
 
   if (!newDirPath.empty()) {
@@ -162,13 +148,12 @@ void MainWindow::on_fileListWidget_itemDoubleClicked(QListWidgetItem* item) {
   }
 }
 
-void MainWindow::goBack() {
-  _control->goBack();
-  updateCurrentDir(_control->getCurrentDir());
-}
+void MainWindow::on_fileListWidget_currentItemChanged(QListWidgetItem* current, QListWidgetItem* previous) {
+  if (current == nullptr) {
+    return;
+  }
 
-
-void MainWindow::goForward() {
-  _control->goForward();
-  updateCurrentDir(_control->getCurrentDir());
+  const auto fileName = FileUtil::qStringToPath(current->text());
+  const auto imageData = _control->getImageData(fileName);
+  updateImage(imageData);
 }
