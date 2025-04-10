@@ -3,7 +3,8 @@
 #include <exiv2/exiv2.hpp>
 
 MainControl::MainControl()
-    : _fileListModel(std::make_shared<FileListModel>()) {
+    : _fileListModel(std::make_shared<FileListModel>()),
+      _imageLoader(std::make_shared<AsyncImageLoader>()) {
 }
 
 MainControl::~MainControl() = default;
@@ -12,6 +13,31 @@ MainControl::~MainControl() = default;
 // File list model
 void MainControl::setCurrentDir(const fs::path& dirPath) {
   _fileListModel->updateCurrentDir(dirPath);
+
+  // --------------------------------------------------------------------------------------------------------------
+  // Load images
+  const auto& files = _fileListModel->getFileList(true);
+
+  // Filter out image files
+  std::vector<fs::path> imageFiles;
+  for (const auto& file : files) {
+    std::string fileExtension = file.extension().string();
+    std::transform(fileExtension.begin(), fileExtension.end(), fileExtension.begin(), ::tolower);
+
+    if (SUPPORTED_IMAGE_EXTENSIONS.find(fileExtension) != SUPPORTED_IMAGE_EXTENSIONS.end()) {
+      imageFiles.push_back(file);
+
+      if (imageFiles.size() >= NUM_IMAGES_TO_LOAD) {
+        break;  // Enough images loaded, exit the loop
+      }
+    }
+  }
+
+  // Load images asynchronously. This will not block the UI thread.
+  // The images will be loaded in the background and can be accessed later using getImageData.
+  if (!imageFiles.empty()) {
+    _imageLoader->loadImages(imageFiles);
+  }
 }
 
 fs::path MainControl::getCurrentDir() const {
@@ -36,62 +62,14 @@ ImageData MainControl::getImageData(const fs::path& filename) const {
   const auto currentDir = getCurrentDir();
   const auto filePath = currentDir / filename;
 
-  const std::set<std::string> supportedExtensions = {
-      ".png",
-      ".jpg",
-      ".jpeg",
-      ".bmp",
-      ".tiff",
-      ".tif",
-      ".exr",
-  };
+  // Get the image data from the image loader. This will be a blocking call until the image is loaded.
+  const auto imageData = _imageLoader->getImage(filePath);
 
-  if (!fs::exists(filePath)) {
-    qInfo() << "File does not exist: " << FileUtil::pathToString(filePath);
-    return ImageData();
+  if (imageData.empty()) {
+    qInfo() << "Image data is empty for file: " << FileUtil::pathToString(filePath);
+  } else {
+    qInfo() << "Image data loaded for file: " << FileUtil::pathToString(filePath);
   }
 
-  if (!fs::is_regular_file(filePath)) {
-    qInfo() << "File is not a regular file: " << FileUtil::pathToString(filePath);
-    return ImageData();
-  }
-
-  std::string fileExtension = filePath.extension().string();
-  std::transform(fileExtension.begin(), fileExtension.end(), fileExtension.begin(), ::tolower);
-
-  if (supportedExtensions.find(fileExtension) == supportedExtensions.end()) {
-    qInfo() << "Unsupported file format: " << FileUtil::pathToString(filePath);
-    return ImageData();
-  }
-
-  qInfo() << "File path: " << FileUtil::pathToString(filePath);
-  cv::Mat image = cv::imread(FileUtil::pathToString(filePath), cv::IMREAD_UNCHANGED);
-
-  if (image.empty()) {
-    return ImageData();
-  }
-
-  try {
-    auto exifImg = Exiv2::ImageFactory::open(FileUtil::pathToString(filePath));
-    exifImg->readMetadata();
-    Exiv2::ExifData& exifData = exifImg->exifData();
-    int64_t orientation = exifData["Exif.Image.Orientation"].toInt64();
-
-    switch (orientation) {
-      case 6:  // 右に90度回転
-        cv::rotate(image, image, cv::ROTATE_90_CLOCKWISE);
-        break;
-      case 8:  // 左に90度回転
-        cv::rotate(image, image, cv::ROTATE_90_COUNTERCLOCKWISE);
-        break;
-      case 3:  // 180度回転
-        cv::rotate(image, image, cv::ROTATE_180);
-        break;
-        // その他の値ではそのまま
-    }
-  } catch (...) {
-    qInfo() << "Failed to read EXIF data: " << FileUtil::pathToString(filePath);
-  }
-
-  return ImageData(image, filePath);
+  return imageData;
 }

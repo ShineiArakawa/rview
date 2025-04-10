@@ -30,15 +30,21 @@ class DefaultShader {
         uniform vec2 u_rectTopLeft;
         uniform vec2 u_rectBottomRight;
         uniform vec3 u_backgroundColor;
+        uniform vec2 u_textureSize;
 
         out vec4 out_color;
+
+        vec2 toValidUV(vec2 uv) {
+          return vec2(uv.x * u_textureSize.x, uv.y * u_textureSize.y);
+        }
 
         void main() {
           out_color = vec4(u_backgroundColor, 1.0);
 
           if (f_uv.x >= u_rectTopLeft.x && f_uv.x <= u_rectBottomRight.x &&
               f_uv.y >= u_rectTopLeft.y && f_uv.y <= u_rectBottomRight.y) {
-            vec2 uv = (f_uv - u_rectTopLeft) / (u_rectBottomRight - u_rectTopLeft);
+            vec2 uv = (f_uv - u_rectTopLeft) / (u_rectBottomRight - u_rectTopLeft); // Ranged in [0, 1]
+            uv = toValidUV(uv);
             out_color = texture(u_texture, uv);
           }
         }

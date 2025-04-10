@@ -38,6 +38,8 @@ class GLWidget : public QOpenGLWidget {
   Q_OBJECT
 
  public:
+  inline static const glm::ivec2 TEXTURE_SIZE = glm::ivec2(12288, 12288);
+
   GLWidget(QWidget *parent = nullptr);
   ~GLWidget();
 

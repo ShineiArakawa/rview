@@ -103,6 +103,10 @@ set(
     include/filelistmodel.h
     src/filelistmodel.cpp
     # --------------------------------------------------------
+    # imageloader
+    include/imageloader.h
+    src/imageloader.cpp
+    # --------------------------------------------------------
     # tranlation
     ${TS_FILES}
     # --------------------------------------------------------

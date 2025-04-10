@@ -125,15 +125,11 @@ void GLWidget::initializeGL() {
   _texture->create();
   _texture->bind();
   _texture->setFormat(QOpenGLTexture::RGBA32F);
-  _texture->setSize(_textureSize.x, _textureSize.y);
+  _texture->setSize(TEXTURE_SIZE.x, TEXTURE_SIZE.y);
   _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
   _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
   _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
   _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
-
-  // Initialize the texture data
-  const cv::Mat initialData(_textureSize.y, _textureSize.x, CV_32FC4, cv::Scalar(_backgroundColor.r, _backgroundColor.g, _backgroundColor.b, 1.0f));
-  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, initialData.data);
   _texture->release();
 
   _oldWindowSize = glm::ivec2(width(), height());
@@ -172,6 +168,11 @@ void GLWidget::paintGL() {
 
       // Set the background color uniform
       _program->setUniformValue("u_backgroundColor", _backgroundColor.r, _backgroundColor.g, _backgroundColor.b);
+
+      // Set the texture size uniform
+      const glm::vec2 validTextureSize = glm::vec2(_textureSize.x / static_cast<float>(TEXTURE_SIZE.x),
+                                                   _textureSize.y / static_cast<float>(TEXTURE_SIZE.y));
+      _program->setUniformValue("u_textureSize", validTextureSize.x, validTextureSize.y);
 
       _vao.bind();
       _glFunctions->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -297,49 +298,19 @@ void GLWidget::updateTexture(const cv::Mat &image) {
 
   makeCurrent();
 
-  // Convert the image to RGBA format
-  cv::Mat rgbaImage;
-  if (image.channels() == 1) {
-    cv::cvtColor(image, rgbaImage, cv::COLOR_GRAY2RGBA);
-  } else if (image.channels() == 3) {
-    cv::cvtColor(image, rgbaImage, cv::COLOR_BGR2RGBA);
-  } else if (image.channels() == 4) {
-    rgbaImage = image;
-  } else {
-    qDebug() << "Unsupported image format";
-    return;
-  }
-
-  // Convert the image to float32 format range [0, 1]
-  double minVal, maxVal;
-  cv::minMaxLoc(rgbaImage, &minVal, &maxVal);
-  rgbaImage.convertTo(rgbaImage, CV_32F, 1.0 / (maxVal - minVal), -minVal / (maxVal - minVal));
-
-  // Flip the image vertically
-  cv::flip(rgbaImage, rgbaImage, 0);
-
-  // Upload the texture data
-  if (_textureSize.x != rgbaImage.cols || _textureSize.y != rgbaImage.rows) {
-    _textureSize.x = rgbaImage.cols;
-    _textureSize.y = rgbaImage.rows;
-
-    _texture->destroy();
-    _texture->create();
-
-    _texture->bind();
-    _texture->setFormat(QOpenGLTexture::RGBA32F);
-    _texture->setSize(_textureSize.x, _textureSize.y);
-    _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
-    _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
-    _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
-    _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
-    _texture->release();
-  }
+  _textureSize.x = image.cols;
+  _textureSize.y = image.rows;
 
   resetRectPosition();
 
   _texture->bind();
-  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, rgbaImage.data);
+  _texture->setData(
+      0, 0, 0,                             // Offset
+      _textureSize.x, _textureSize.y, 1,   // width, height, depth
+      QOpenGLTexture::PixelFormat::RGBA,   // source format
+      QOpenGLTexture::PixelType::Float32,  // source type
+      image.data                           // data pointer
+  );
   _texture->release();
 
   doneCurrent();

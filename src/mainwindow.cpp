@@ -90,8 +90,6 @@ void MainWindow::updateImage(const ImageData& imageData) {
   if (imageData.empty()) {
     return;
   }
-
-  qDebug() << "Current item changed:" << imageData.path;
   _ui->glwidget->updateTexture(imageData.image);
 }
 

@@ -69,7 +69,10 @@ bool naturalCompare(const std::filesystem::path& a, const std::filesystem::path&
   auto ai = aStr.begin(), bi = bStr.begin();
 
   while (ai != aStr.end() && bi != bStr.end()) {
-    // 数字を発見したら、連続する数字部分を整数として比較
+    if (*ai < 1 || *bi < 1) {
+      return false;
+    }
+
     if (std::isdigit(*ai) && std::isdigit(*bi)) {
       int aNum = 0, bNum = 0;
 
@@ -98,26 +101,46 @@ bool naturalCompare(const std::filesystem::path& a, const std::filesystem::path&
   return aStr.size() < bStr.size();  // 長さで決まる場合も考慮
 }
 
-std::vector<fs::path> FileListModel::getFileList() const {
+std::vector<fs::path> FileListModel::getDirList() const {
   std::vector<fs::path> dirList;
-  std::vector<fs::path> fileList;
-
   const auto dirPath = getCurrentDir();
 
   for (const auto& entry : fs::directory_iterator(dirPath)) {
     const fs::path& path = entry.path();
     if (fs::is_directory(path)) {
       dirList.push_back(path);
-    } else {
-      fileList.push_back(path);
     }
   }
 
   std::sort(dirList.begin(), dirList.end(), naturalCompare);
+
+  return dirList;
+}
+
+std::vector<fs::path> FileListModel::getOnlyFileList() const {
+  std::vector<fs::path> fileList;
+  const auto dirPath = getCurrentDir();
+
+  for (const auto& entry : fs::directory_iterator(dirPath)) {
+    const fs::path& path = entry.path();
+    if (fs::is_regular_file(path)) {
+      fileList.push_back(path);
+    }
+  }
+
   std::sort(fileList.begin(), fileList.end(), naturalCompare);
 
-  // Combine the directory and file lists
-  fileList.insert(fileList.begin(), dirList.begin(), dirList.end());
+  return fileList;
+}
+
+std::vector<fs::path> FileListModel::getFileList(bool filesOnly) const {
+  std::vector<fs::path> fileList = getOnlyFileList();
+
+  if (!filesOnly) {
+    // Combine the directory and file lists
+    std::vector<fs::path> dirList = getDirList();
+    fileList.insert(fileList.begin(), dirList.begin(), dirList.end());
+  }
 
   return fileList;
 }

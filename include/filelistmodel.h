@@ -31,12 +31,16 @@ class FileListModelBase {
 // FileListModel
 // ######################################################################################
 class FileListModel : public FileListModelBase {
+ private:
+  std::vector<fs::path> getDirList() const;
+  std::vector<fs::path> getOnlyFileList() const;
+
  public:
   FileListModel();
   ~FileListModel();
 
   void updateCurrentDir(const fs::path& dirPath);
-  std::vector<fs::path> getFileList() const;
+  std::vector<fs::path> getFileList(bool filesOnly = false) const;
 };
 
 using FileListModel_t = std::shared_ptr<FileListModel>;
