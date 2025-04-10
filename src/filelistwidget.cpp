@@ -5,7 +5,6 @@
 #include <QMenu>
 #include <QMessageBox>
 
-
 FileListWidget::FileListWidget(QWidget* parent)
     : QListWidget(parent),
       _control(nullptr) {
@@ -18,8 +17,6 @@ void FileListWidget::setMainControl(MainControl_t& control) {
 }
 
 void FileListWidget::mouseReleaseEvent(QMouseEvent* event) {
-  qDebug() << event->button();
-
   if (event->button() == Qt::XButton1) {
     // Back button
     emit signal_goBack();

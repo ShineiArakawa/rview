@@ -34,7 +34,7 @@ ImageData MainControl::getImageData(const fs::path& filename) const {
   const auto currentDir = getCurrentDir();
   const auto filePath = currentDir / filename;
 
-  const std::set<fs::path> supportedExtensions = {
+  const std::set<std::string> supportedExtensions = {
       ".png",
       ".jpg",
       ".jpeg",
@@ -54,11 +54,15 @@ ImageData MainControl::getImageData(const fs::path& filename) const {
     return ImageData();
   }
 
-  if (supportedExtensions.find(filePath.extension()) == supportedExtensions.end()) {
+  std::string fileExtension = filePath.extension().string();
+  std::transform(fileExtension.begin(), fileExtension.end(), fileExtension.begin(), ::tolower);
+
+  if (supportedExtensions.find(fileExtension) == supportedExtensions.end()) {
     qInfo() << "Unsupported file format: " << FileUtil::pathToString(filePath);
     return ImageData();
   }
 
+  qInfo() << "File path: " << FileUtil::pathToString(filePath);
   cv::Mat image = cv::imread(FileUtil::pathToString(filePath), cv::IMREAD_UNCHANGED);
 
   if (image.empty()) {

@@ -5,12 +5,15 @@
 
 GLWidget::GLWidget(QWidget *parent)
     : QOpenGLWidget(parent),
-      _program(nullptr),
+      _textureSize(100, 100),
+      _rectTopLeft(0.0f, 0.0f),
+      _rectBottomRight(1.0f, 1.0f),
+      _backgroundColor(0.1f, 0.1f, 0.1f),
       _vao(),
+      _program(nullptr),
       _vertexBuffer(QOpenGLBuffer::VertexBuffer),
       _indexBuffer(QOpenGLBuffer::IndexBuffer),
       _texture(nullptr),
-      _textureSize(100, 100),
       _glFunctions(nullptr) {
 }
 
@@ -125,16 +128,13 @@ void GLWidget::initializeGL() {
   _texture->setMagnificationFilter(QOpenGLTexture::Linear);
   _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
   _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
-
-  // White texture
-  cv::Mat whiteImage(_textureSize.y, _textureSize.x, CV_32FC4, cv::Scalar(1.0f, 1.0f, 1.0f, 1.0f));
-  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, whiteImage.data);
   _texture->release();
 }
 
 void GLWidget::resizeGL(int w, int h) {
   const qreal retinaScale = devicePixelRatio();
   _glFunctions->glViewport(0, 0, w * retinaScale, h * retinaScale);
+  resetRectPosition();
 }
 
 void GLWidget::paintGL() {
@@ -157,6 +157,13 @@ void GLWidget::paintGL() {
       // Set the pixel size uniform
       _program->setUniformValue("u_pixelSize", 1.0f / width(), 1.0f / height());
 
+      // Set the rectangle position uniform
+      _program->setUniformValue("u_rectTopLeft", _rectTopLeft.x, _rectTopLeft.y);
+      _program->setUniformValue("u_rectBottomRight", _rectBottomRight.x, _rectBottomRight.y);
+
+      // Set the background color uniform
+      _program->setUniformValue("u_backgroundColor", _backgroundColor.r, _backgroundColor.g, _backgroundColor.b);
+
       _vao.bind();
       _glFunctions->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
       _vao.release();
@@ -171,21 +178,20 @@ void GLWidget::paintGL() {
 }
 
 void GLWidget::mousePressEvent(QMouseEvent *event) {
-  qDebug() << "Pressed: " << event->button();
 }
 
 void GLWidget::mouseMoveEvent(QMouseEvent *event) {
-  qDebug() << "Moved: " << event->button();
 }
 
 void GLWidget::mouseReleaseEvent(QMouseEvent *event) {
-  qDebug() << "Released: " << event->button();
 }
 
 void GLWidget::updateTexture(const cv::Mat &image) {
   if (image.empty()) {
     return;
   }
+
+  makeCurrent();
 
   // Convert the image to RGBA format
   cv::Mat rgbaImage;
@@ -209,8 +215,6 @@ void GLWidget::updateTexture(const cv::Mat &image) {
   cv::flip(rgbaImage, rgbaImage, 0);
 
   // Upload the texture data
-  _texture->bind();
-
   if (_textureSize.x != rgbaImage.cols || _textureSize.y != rgbaImage.rows) {
     _textureSize.x = rgbaImage.cols;
     _textureSize.y = rgbaImage.rows;
@@ -228,9 +232,45 @@ void GLWidget::updateTexture(const cv::Mat &image) {
     _texture->release();
   }
 
+  resetRectPosition();
+
   _texture->bind();
   _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, rgbaImage.data);
   _texture->release();
 
+  doneCurrent();
+
+  // Update
   update();
+}
+
+void GLWidget::resetRectPosition() {
+  const glm::ivec2 windowSize(width(), height());
+
+  const float textureAspect = static_cast<float>(_textureSize.x) / static_cast<float>(_textureSize.y);
+  const float windowAspect = static_cast<float>(windowSize.x) / static_cast<float>(windowSize.y);
+
+  if (textureAspect > windowAspect) {
+    // Texture is wider than window
+    const float scale = static_cast<float>(windowSize.x) / static_cast<float>(_textureSize.x);
+    const float width = scale * _textureSize.x;
+    const float height = scale * _textureSize.y;
+
+    _rectTopLeft.x = (windowSize.x - width) / 2.0f / windowSize.x;
+    _rectTopLeft.y = (windowSize.y - height) / 2.0f / windowSize.y;
+    _rectBottomRight.x = (windowSize.x + width) / 2.0f / windowSize.x;
+    _rectBottomRight.y = (windowSize.y + height) / 2.0f / windowSize.y;
+  } else {
+    // Texture is taller than window
+    const float scale = static_cast<float>(windowSize.y) / static_cast<float>(_textureSize.y);
+    const float width = scale * _textureSize.x;
+    const float height = scale * _textureSize.y;
+
+    _rectTopLeft.x = (windowSize.x - width) / 2.0f / windowSize.x;
+    _rectTopLeft.y = (windowSize.y - height) / 2.0f / windowSize.y;
+    _rectBottomRight.x = (windowSize.x + width) / 2.0f / windowSize.x;
+    _rectBottomRight.y = (windowSize.y + height) / 2.0f / windowSize.y;
+  }
+
+  qDebug() << "Rect position: " << glm::to_string(_rectTopLeft) << " x " << glm::to_string(_rectBottomRight);
 }

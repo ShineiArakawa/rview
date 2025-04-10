@@ -10,7 +10,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
       _ui(new Ui::MainWindow),
       _control(std::make_shared<MainControl>()) {
-  // --------------------------------------------------------------------
+  // ------------------------------------------------------------------------------------------
   // Set up ui
   _ui->setupUi(this);
 
@@ -85,10 +85,10 @@ void MainWindow::goForward() {
 
 void MainWindow::updateImage(const ImageData& imageData) {
   if (imageData.empty()) {
-    qInfo() << "Image data is empty";
     return;
   }
 
+  qDebug() << "Current item changed:" << imageData.path;
   _ui->glwidget->updateTexture(imageData.image);
 }
 
@@ -136,11 +136,11 @@ void MainWindow::on_fileListWidget_itemDoubleClicked(QListWidgetItem* item) {
       // Open the directory
       newDirPath = filePath;
     } else {
-      qInfo() << "File is not a directory: " << FileUtil::pathToString(filePath) ;
+      qInfo() << "File is not a directory: " << FileUtil::pathToString(filePath);
     }
   } catch (const std::filesystem::filesystem_error& e) {
     // Log the error or handle it accordingly
-    qInfo() << "Error accessing file: " << e.what() ;
+    qInfo() << "Error accessing file: " << e.what();
   }
 
   if (!newDirPath.empty()) {
@@ -155,5 +155,6 @@ void MainWindow::on_fileListWidget_currentItemChanged(QListWidgetItem* current, 
 
   const auto fileName = FileUtil::qStringToPath(current->text());
   const auto imageData = _control->getImageData(fileName);
+
   updateImage(imageData);
 }

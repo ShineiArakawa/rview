@@ -18,7 +18,11 @@ void FileListModelBase::setCurrentDir(const fs::path& dirPath) {
     }
 
     _dirPathHistory[_dirPathHistoryIndex] = dirPath;
+#if defined(_WIN32)
     _dirPathHistoryIndex = min(_dirPathHistoryIndex + 1, MAX_DIR_PATH_HISTORY_SIZE);
+#else
+    _dirPathHistoryIndex = std::min(_dirPathHistoryIndex + 1, MAX_DIR_PATH_HISTORY_SIZE);
+#endif
   }
 }
 
@@ -54,6 +58,50 @@ void FileListModel::updateCurrentDir(const fs::path& dirPath) {
   setCurrentDir(dirPath);
 }
 
+bool naturalCompare(const std::filesystem::path &a, const std::filesystem::path &b) {
+  std::string aStr = a.string();
+  std::string bStr = b.string();
+
+  auto itA = aStr.begin(), itB = bStr.begin();
+  // 両文字列の終端に達するまでループ
+  while (itA != aStr.end() && itB != bStr.end()) {
+    // 両方の位置で数字が始まっている場合
+    if (std::isdigit(*itA) && std::isdigit(*itB)) {
+      // 数字部分を抜き出す
+      std::string numA, numB;
+      while (itA != aStr.end() && std::isdigit(*itA)) {
+        numA.push_back(*itA);
+        ++itA;
+      }
+      while (itB != bStr.end() && std::isdigit(*itB)) {
+        numB.push_back(*itB);
+        ++itB;
+      }
+      // 数字部分の長さが異なる場合、桁数が少ないほうが小さいと判断
+      if (numA.size() != numB.size()) {
+        return numA.size() < numB.size();
+      }
+      // 桁数が同じ場合、文字列比較で決定
+      if (numA != numB) {
+        return numA < numB;
+      }
+      // 数字部分が等しければ、ループを継続して次の文字へ
+    } else {
+      // 文字が数字以外の場合は、大文字・小文字を無視して比較
+      char ca = std::tolower(*itA);
+      char cb = std::tolower(*itB);
+      if (ca != cb) {
+        return ca < cb;
+      }
+      ++itA;
+      ++itB;
+    }
+  }
+  // いずれかの文字列が終わった場合、残りの文字列の長さで比較
+  return aStr.size() < bStr.size();
+}
+
+
 std::vector<fs::path> FileListModel::getFileList() const {
   std::vector<fs::path> dirList;
   std::vector<fs::path> fileList;
@@ -78,6 +126,10 @@ std::vector<fs::path> FileListModel::getFileList() const {
   //     const std::string str_a = a.filename().string();
   //     const std::string str_b = b.filename().string();
   //     return (natural_compare(str_a, str_b) == 0); });
+
+  std::sort(dirList.begin(),dirList.end(), naturalCompare);
+  std::sort(fileList.begin(),fileList.end(), naturalCompare);
+
 
   // Combine the directory and file lists
   fileList.insert(fileList.begin(), dirList.begin(), dirList.end());

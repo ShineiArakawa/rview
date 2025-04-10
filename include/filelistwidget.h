@@ -1,10 +1,10 @@
 #ifndef FILELISTWIDGET_H
 #define FILELISTWIDGET_H
 
-#include <QListWidget>
 #include <maincontrol.h>
-#include <QMouseEvent>
 
+#include <QListWidget>
+#include <QMouseEvent>
 
 class FileListWidget : public QListWidget {
   Q_OBJECT

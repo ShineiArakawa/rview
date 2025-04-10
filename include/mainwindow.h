@@ -24,6 +24,8 @@ class MainWindow : public QMainWindow {
   MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
 
+  void updateCurrentDir(const fs::path &dirPath);
+
  private slots:
   void on_currentDirPath_returnPressed();
   void on_fileListWidget_itemDoubleClicked(QListWidgetItem *item);
@@ -33,7 +35,6 @@ class MainWindow : public QMainWindow {
   Ui::MainWindow *_ui;
   MainControl_t _control;
 
-  void updateCurrentDir(const fs::path &dirPath);
   void updateFileList();
   void goBack();
   void goForward();

@@ -27,11 +27,20 @@ class DefaultShader {
 
         uniform sampler2D u_texture;
         uniform vec2 u_pixelSize;
+        uniform vec2 u_rectTopLeft;
+        uniform vec2 u_rectBottomRight;
+        uniform vec3 u_backgroundColor;
 
         out vec4 out_color;
 
         void main() {
-          out_color = texture(u_texture, f_uv);
+          out_color = vec4(u_backgroundColor, 1.0);
+
+          if (f_uv.x >= u_rectTopLeft.x && f_uv.x <= u_rectBottomRight.x &&
+              f_uv.y >= u_rectTopLeft.y && f_uv.y <= u_rectBottomRight.y) {
+            vec2 uv = (f_uv - u_rectTopLeft) / (u_rectBottomRight - u_rectTopLeft);
+            out_color = texture(u_texture, uv);
+          }
         }
     )";
 };

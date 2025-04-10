@@ -53,6 +53,10 @@ class GLWidget : public QOpenGLWidget {
 
  private:
   glm::ivec2 _textureSize;
+  glm::vec2 _rectTopLeft;
+  glm::vec2 _rectBottomRight;
+
+  glm::vec3 _backgroundColor;
 
   QOpenGLShaderProgram *_program;
 
@@ -62,4 +66,6 @@ class GLWidget : public QOpenGLWidget {
   QOpenGLTexture *_texture;
 
   QOpenGLFunctions *_glFunctions;
+
+  void resetRectPosition();
 };
