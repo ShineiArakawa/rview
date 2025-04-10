@@ -65,11 +65,5 @@ ImageData MainControl::getImageData(const fs::path& filename) const {
   // Get the image data from the image loader. This will be a blocking call until the image is loaded.
   const auto imageData = _imageLoader->getImage(filePath);
 
-  if (imageData.empty()) {
-    qInfo() << "Image data is empty for file: " << FileUtil::pathToString(filePath);
-  } else {
-    qInfo() << "Image data loaded for file: " << FileUtil::pathToString(filePath);
-  }
-
   return imageData;
 }

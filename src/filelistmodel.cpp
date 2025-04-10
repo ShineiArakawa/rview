@@ -69,9 +69,11 @@ bool naturalCompare(const std::filesystem::path& a, const std::filesystem::path&
   auto ai = aStr.begin(), bi = bStr.begin();
 
   while (ai != aStr.end() && bi != bStr.end()) {
+#if defined(_WIN32)
     if (*ai < 1 || *bi < 1) {
       return false;
     }
+#endif
 
     if (std::isdigit(*ai) && std::isdigit(*bi)) {
       int aNum = 0, bNum = 0;
