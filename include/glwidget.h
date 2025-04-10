@@ -49,6 +49,7 @@ class GLWidget : public QOpenGLWidget {
   void resizeGL(int w, int h) override;
   void paintGL() override;
   void mousePressEvent(QMouseEvent *event) override;
+  void mouseDoubleClickEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
   void wheelEvent(QWheelEvent *event) override;
@@ -72,6 +73,8 @@ class GLWidget : public QOpenGLWidget {
   bool _isDragging;
   glm::ivec2 _oldPos;
   glm::ivec2 _newPos;
+
+  glm::ivec2 _oldWindowSize;
 
   void resetRectPosition();
 };

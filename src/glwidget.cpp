@@ -9,6 +9,7 @@ GLWidget::GLWidget(QWidget *parent)
       _rectTopLeft(0.0f, 0.0f),
       _rectBottomRight(1.0f, 1.0f),
       _backgroundColor(0.1f, 0.1f, 0.1f),
+      _oldWindowSize(0, 0),
       _vao(),
       _program(nullptr),
       _vertexBuffer(QOpenGLBuffer::VertexBuffer),
@@ -129,12 +130,19 @@ void GLWidget::initializeGL() {
   _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
   _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
   _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
+
+  // Initialize the texture data
+  const cv::Mat initialData(_textureSize.y, _textureSize.x, CV_32FC4, cv::Scalar(_backgroundColor.r, _backgroundColor.g, _backgroundColor.b, 1.0f));
+  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, initialData.data);
   _texture->release();
+
+  _oldWindowSize = glm::ivec2(width(), height());
 }
 
 void GLWidget::resizeGL(int w, int h) {
   const qreal retinaScale = devicePixelRatio();
   _glFunctions->glViewport(0, 0, w * retinaScale, h * retinaScale);
+
   resetRectPosition();
 }
 
@@ -198,6 +206,17 @@ void GLWidget::mousePressEvent(QMouseEvent *event) {
   event->accept();
 }
 
+void GLWidget::mouseDoubleClickEvent(QMouseEvent *event) {
+  if (event == nullptr) {
+    return;
+  }
+
+  if (event->button() == Qt::LeftButton) {
+    resetRectPosition();
+    update();
+  }
+}
+
 void GLWidget::mouseMoveEvent(QMouseEvent *event) {
   if (event == nullptr) {
     return;
@@ -246,32 +265,26 @@ void GLWidget::wheelEvent(QWheelEvent *event) {
     return;
   }
 
+  // マウスホイールの回転量を取得（1ステップあたり15°、単位は度）
   const float degrees = event->angleDelta().y() / 8.0f;
   const float steps = degrees / 15.0f;
 
+  // 各ステップごとに1.1倍/0.9倍で拡大縮小する（複数ステップの場合は累乗する）
+  const float scaleFactor = std::pow(1.1f, steps);
+
+  // 現在の画像表示領域の中心を計算
   const glm::vec2 center = (_rectBottomRight + _rectTopLeft) / 2.0f;
-  const glm::vec2 size = _rectBottomRight - _rectTopLeft;
+  const glm::vec2 windowCenter(0.5f, 0.5f);
 
-  float magnification = 1.0f;
-  if (steps > 0.0f) {
-    magnification = 1.1f;
-  } else {
-    magnification = 0.90f;
-  }
+  _rectTopLeft = (_rectTopLeft - center) * scaleFactor;
+  _rectBottomRight = (_rectBottomRight - center) * scaleFactor;
 
-  const glm::vec2 newSize = size * magnification;
+  // 新しい中心を計算
+  const glm::vec2 newCenter = (center - windowCenter) * scaleFactor + windowCenter;
+  _rectTopLeft += newCenter;
+  _rectBottomRight += newCenter;
 
-  // Calc corner position
-  const glm::vec2 newTopLeft = center * magnification - newSize / 2.0f;
-  const glm::vec2 newBottomRight = center * magnification + newSize / 2.0f;
-
-  // Update the rectangle position
-  _rectTopLeft = newTopLeft;
-  _rectBottomRight = newBottomRight;
-
-  qDebug() << "Rect position: " << glm::to_string(_rectTopLeft) << " x " << glm::to_string(_rectBottomRight);
-
-  // Update the OpenGL widget
+  // OpenGLウィジェットを更新
   update();
 
   event->accept();
@@ -349,8 +362,8 @@ void GLWidget::resetRectPosition() {
 
     _rectTopLeft.x = (windowSize.x - width) / 2.0f / windowSize.x;
     _rectTopLeft.y = (windowSize.y - height) / 2.0f / windowSize.y;
-    _rectBottomRight.x = (windowSize.x + width) / 2.0f / windowSize.x;
-    _rectBottomRight.y = (windowSize.y + height) / 2.0f / windowSize.y;
+    _rectBottomRight.x = _rectTopLeft.x + width / windowSize.x;
+    _rectBottomRight.y = _rectTopLeft.y + height / windowSize.y;
   } else {
     // Texture is taller than window
     const float scale = static_cast<float>(windowSize.y) / static_cast<float>(_textureSize.y);
@@ -359,9 +372,7 @@ void GLWidget::resetRectPosition() {
 
     _rectTopLeft.x = (windowSize.x - width) / 2.0f / windowSize.x;
     _rectTopLeft.y = (windowSize.y - height) / 2.0f / windowSize.y;
-    _rectBottomRight.x = (windowSize.x + width) / 2.0f / windowSize.x;
-    _rectBottomRight.y = (windowSize.y + height) / 2.0f / windowSize.y;
+    _rectBottomRight.x = _rectTopLeft.x + width / windowSize.x;
+    _rectBottomRight.y = _rectTopLeft.y + height / windowSize.y;
   }
-
-  qDebug() << "Rect position: " << glm::to_string(_rectTopLeft) << " x " << glm::to_string(_rectBottomRight);
 }

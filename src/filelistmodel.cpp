@@ -58,48 +58,44 @@ void FileListModel::updateCurrentDir(const fs::path& dirPath) {
 }
 
 bool naturalCompare(const std::filesystem::path& a, const std::filesystem::path& b) {
+#ifdef _WIN32
   std::string aStr = FileUtil::wstringToString(a.wstring());
   std::string bStr = FileUtil::wstringToString(b.wstring());
+#else
+  std::string aStr = a.string();
+  std::string bStr = b.string();
+#endif
 
-  auto itA = aStr.begin(), itB = bStr.begin();
-  while (itA != aStr.end() && itB != bStr.end()) {
-    // Check range
-    if (*itA < 1 || *itA > 255 || *itB < 1 || *itB > 255) {
-      return false;  // Invalid character range
+  auto ai = aStr.begin(), bi = bStr.begin();
+
+  while (ai != aStr.end() && bi != bStr.end()) {
+    // 数字を発見したら、連続する数字部分を整数として比較
+    if (std::isdigit(*ai) && std::isdigit(*bi)) {
+      int aNum = 0, bNum = 0;
+
+      while (ai != aStr.end() && std::isdigit(*ai)) {
+        aNum = aNum * 10 + (*ai - '0');
+        ++ai;
+      }
+      while (bi != bStr.end() && std::isdigit(*bi)) {
+        bNum = bNum * 10 + (*bi - '0');
+        ++bi;
+      }
+
+      if (aNum != bNum) {
+        return aNum < bNum;
+      }
     }
-
-    if (std::isdigit(*itA) && std::isdigit(*itB)) {
-      std::string numA, numB;
-      while (itA != aStr.end() && std::isdigit(*itA)) {
-        numA.push_back(*itA);
-        ++itA;
-      }
-      while (itB != bStr.end() && std::isdigit(*itB)) {
-        numB.push_back(*itB);
-        ++itB;
-      }
-      // 数字部分の長さが異なる場合、桁数が少ないほうが小さいと判断
-      if (numA.size() != numB.size()) {
-        return numA.size() < numB.size();
-      }
-      // 桁数が同じ場合、文字列比較で決定
-      if (numA != numB) {
-        return numA < numB;
-      }
-      // 数字部分が等しければ、ループを継続して次の文字へ
+    // 数字以外の場合は、通常の文字として比較
+    else if (*ai != *bi) {
+      return *ai < *bi;
     } else {
-      // 文字が数字以外の場合は、大文字・小文字を無視して比較
-      char ca = std::tolower(*itA);
-      char cb = std::tolower(*itB);
-      if (ca != cb) {
-        return ca < cb;
-      }
-      ++itA;
-      ++itB;
+      ++ai;
+      ++bi;
     }
   }
-  // いずれかの文字列が終わった場合、残りの文字列の長さで比較
-  return aStr.size() < bStr.size();
+
+  return aStr.size() < bStr.size();  // 長さで決まる場合も考慮
 }
 
 std::vector<fs::path> FileListModel::getFileList() const {
@@ -116,16 +112,6 @@ std::vector<fs::path> FileListModel::getFileList() const {
       fileList.push_back(path);
     }
   }
-
-  // Sort the file list by natural order
-  // std::sort(dirList.begin(), dirList.end(), [](const fs::path& a, const fs::path& b) -> bool {
-  //     const std::string str_a = a.filename().string();
-  //     const std::string str_b = b.filename().string();
-  //     return (natural_compare(str_a, str_b) == 0); });
-  // std::sort(fileList.begin(), fileList.end(), [](const fs::path& a, const fs::path& b) -> bool {
-  //     const std::string str_a = a.filename().string();
-  //     const std::string str_b = b.filename().string();
-  //     return (natural_compare(str_a, str_b) == 0); });
 
   std::sort(dirList.begin(), dirList.end(), naturalCompare);
   std::sort(fileList.begin(), fileList.end(), naturalCompare);

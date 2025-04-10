@@ -14,6 +14,9 @@ MainWindow::MainWindow(QWidget* parent)
   // Set up ui
   _ui->setupUi(this);
 
+  setWindowIcon(QIcon(":/icons/appico.ico"));
+  setWindowTitle(WINDOW_TITLE);
+
   // ------------------------------------------------------------------------------------------
   // Set main controller
   _ui->fileListWidget->setMainControl(_control);

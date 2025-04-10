@@ -102,20 +102,42 @@ set(
     # filelistmodel
     include/filelistmodel.h
     src/filelistmodel.cpp
+    # --------------------------------------------------------
     # tranlation
     ${TS_FILES}
+    # --------------------------------------------------------
+    # resource
+    resource/icon.rc
+    resource/icons.qrc
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(
-        ${PROJECT_NAME}
-        MANUAL_FINALIZATION
-        ${PROJECT_SOURCES}
-    )
-    # Define target properties for Android with Qt 6 as:
-    #    set_property(TARGET ReView APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-    #                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-    # For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
+    if (APPLE)
+        message(STATUS "Building for macOS")
+        set(MACOSX_BUNDLE_ICON_FILE app.icns)
+        set(app_icon_macos "${CMAKE_CURRENT_SOURCE_DIR}/resource/app.icns")
+        set_source_files_properties(
+            ${app_icon_macos}
+            PROPERTIES
+            MACOSX_PACKAGE_LOCATION
+            "Resources"
+        )
+
+        
+        qt_add_executable(
+            ${PROJECT_NAME}
+            MACOSX_BUNDLE
+            MANUAL_FINALIZATION
+            ${PROJECT_SOURCES}
+            ${app_icon_macos}
+            )
+    else()
+        qt_add_executable(
+            ${PROJECT_NAME}
+            MANUAL_FINALIZATION
+            ${PROJECT_SOURCES}
+        )
+    endif()
 
     qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 else()

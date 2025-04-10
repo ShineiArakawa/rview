@@ -18,6 +18,7 @@ class MainWindow : public QMainWindow {
   Q_OBJECT
 
  private:
+  static inline const QString WINDOW_TITLE = "RView";
   static inline const QString PATENT_DIR_REL_PATH = "..";
 
  public:
