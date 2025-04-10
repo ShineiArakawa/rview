@@ -14,7 +14,8 @@ GLWidget::GLWidget(QWidget *parent)
       _vertexBuffer(QOpenGLBuffer::VertexBuffer),
       _indexBuffer(QOpenGLBuffer::IndexBuffer),
       _texture(nullptr),
-      _glFunctions(nullptr) {
+      _glFunctions(nullptr),
+      _isDragging(false) {
 }
 
 GLWidget::~GLWidget() {
@@ -124,8 +125,8 @@ void GLWidget::initializeGL() {
   _texture->bind();
   _texture->setFormat(QOpenGLTexture::RGBA32F);
   _texture->setSize(_textureSize.x, _textureSize.y);
-  _texture->setMinificationFilter(QOpenGLTexture::Linear);
-  _texture->setMagnificationFilter(QOpenGLTexture::Linear);
+  _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
+  _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
   _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
   _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
   _texture->release();
@@ -178,12 +179,102 @@ void GLWidget::paintGL() {
 }
 
 void GLWidget::mousePressEvent(QMouseEvent *event) {
+  if (event == nullptr) {
+    return;
+  }
+
+  if (event->button() == Qt::LeftButton) {
+    if (!_isDragging) {
+      _isDragging = true;
+      _oldPos = glm::ivec2(-event->pos().x(), event->pos().y());
+      _newPos = _oldPos;
+    }
+  } else {
+    _isDragging = false;
+    _oldPos = glm::ivec2(0, 0);
+    _newPos = glm::ivec2(0, 0);
+  }
+
+  event->accept();
 }
 
 void GLWidget::mouseMoveEvent(QMouseEvent *event) {
+  if (event == nullptr) {
+    return;
+  }
+
+  if (_isDragging) {
+    _newPos = glm::ivec2(-event->pos().x(), event->pos().y());
+
+    const glm::ivec2 deltaPix = _newPos - _oldPos;
+    const float distSquared = deltaPix.x * deltaPix.x + deltaPix.y * deltaPix.y;
+
+    if (distSquared >= 1.0f) {
+      // Update the rectangle position based on the mouse movement
+      const glm::vec2 delta = glm::vec2(deltaPix.x, deltaPix.y) / glm::vec2(width(), height());
+
+      _rectTopLeft -= delta;
+      _rectBottomRight -= delta;
+
+      // Update the old position
+      _oldPos = _newPos;
+
+      // Update the OpenGL widget
+      update();
+    }
+  }
+
+  event->accept();
 }
 
 void GLWidget::mouseReleaseEvent(QMouseEvent *event) {
+  if (event == nullptr) {
+    return;
+  }
+
+  if (event->button() == Qt::LeftButton) {
+    _isDragging = false;
+    _oldPos = glm::ivec2(0, 0);
+    _newPos = glm::ivec2(0, 0);
+  }
+
+  event->accept();
+}
+
+void GLWidget::wheelEvent(QWheelEvent *event) {
+  if (event == nullptr) {
+    return;
+  }
+
+  const float degrees = event->angleDelta().y() / 8.0f;
+  const float steps = degrees / 15.0f;
+
+  const glm::vec2 center = (_rectBottomRight + _rectTopLeft) / 2.0f;
+  const glm::vec2 size = _rectBottomRight - _rectTopLeft;
+
+  float magnification = 1.0f;
+  if (steps > 0.0f) {
+    magnification = 1.1f;
+  } else {
+    magnification = 0.90f;
+  }
+
+  const glm::vec2 newSize = size * magnification;
+
+  // Calc corner position
+  const glm::vec2 newTopLeft = center * magnification - newSize / 2.0f;
+  const glm::vec2 newBottomRight = center * magnification + newSize / 2.0f;
+
+  // Update the rectangle position
+  _rectTopLeft = newTopLeft;
+  _rectBottomRight = newBottomRight;
+
+  qDebug() << "Rect position: " << glm::to_string(_rectTopLeft) << " x " << glm::to_string(_rectBottomRight);
+
+  // Update the OpenGL widget
+  update();
+
+  event->accept();
 }
 
 void GLWidget::updateTexture(const cv::Mat &image) {
@@ -225,8 +316,8 @@ void GLWidget::updateTexture(const cv::Mat &image) {
     _texture->bind();
     _texture->setFormat(QOpenGLTexture::RGBA32F);
     _texture->setSize(_textureSize.x, _textureSize.y);
-    _texture->setMinificationFilter(QOpenGLTexture::Linear);
-    _texture->setMagnificationFilter(QOpenGLTexture::Linear);
+    _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
+    _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
     _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
     _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
     _texture->release();

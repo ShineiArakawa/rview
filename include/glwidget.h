@@ -11,6 +11,7 @@
 #include <QOpenGLTexture>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
+#include <QWheelEvent>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -50,6 +51,7 @@ class GLWidget : public QOpenGLWidget {
   void mousePressEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
+  void wheelEvent(QWheelEvent *event) override;
 
  private:
   glm::ivec2 _textureSize;
@@ -66,6 +68,10 @@ class GLWidget : public QOpenGLWidget {
   QOpenGLTexture *_texture;
 
   QOpenGLFunctions *_glFunctions;
+
+  bool _isDragging;
+  glm::ivec2 _oldPos;
+  glm::ivec2 _newPos;
 
   void resetRectPosition();
 };

@@ -1,5 +1,12 @@
 #include <fileutil.h>
 
+#if defined(_WIN32)
+std::string FileUtil::wstringToString(const std::wstring& wstr) {
+  std::string str(wstr.begin(), wstr.end());
+  return str;
+}
+#endif
+
 fs::path FileUtil::getHomeDirectory() {
   std::string homeDir;
 
@@ -24,7 +31,6 @@ std::filesystem::path FileUtil::qStringToPath(const QString& qstr) {
 #ifdef _WIN32
   return std::filesystem::path(qstr.toStdWString());
 #else
-  // POSIX�n�iLinux, macOS�j�̏ꍇ�FUTF-8 (std::string) ���g�p
   return std::filesystem::path(qstr.toUtf8().constData());
 #endif
 }
@@ -33,7 +39,6 @@ QString FileUtil::pathToQString(const fs::path& path) {
 #ifdef _WIN32
   return QString::fromStdWString(path.wstring());
 #else
-  // POSIX�n�iLinux, macOS�j�̏ꍇ�FUTF-8 (std::string) ���g�p
   return QString::fromUtf8(path.string().c_str());
 #endif
 }

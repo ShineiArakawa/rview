@@ -29,6 +29,12 @@ namespace fs = std::filesystem;
 
 class FileUtil {
  public:
+  FileUtil() = delete;  // Prevent instantiation of this class
+
+#ifdef _WIN32
+  static std::string wstringToString(const std::wstring& wstr);
+#endif
+
   static fs::path getHomeDirectory();
 
   static fs::path qStringToPath(const QString& qstr);

@@ -10,7 +10,7 @@ set(CMAKE_AUTORCC ON)
 # --------------------------------------------------------------------
 # C++ settings
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE on)
 
@@ -47,7 +47,19 @@ find_package(
     COMPONENTS Widgets LinguistTools OpenGL OpenGLWidgets
 )
 
+# Find OpenCV
+set(OpenCV_SHARED off)
+set(OpenCV_STATIC on)
 find_package(OpenCV REQUIRED)
+
+# Find exiv2 for image metadata
+find_package(Exiv2 REQUIRED)
+
+# --------------------------------------------------------------------
+# Third party libraries
+add_subdirectory(
+    "third_party"
+)
 
 # --------------------------------------------------------------------
 # Set up the build environment
@@ -65,13 +77,13 @@ set(
     src/maincontrol.cpp
     # -------------------------------------------------------
     # mainwindow
+    include/mainwindow.h
     src/mainwindow.cpp
     src/mainwindow.ui
-    include/mainwindow.h
     # -------------------------------------------------------
     # glwidget
-    src/glwidget.cpp
     include/glwidget.h
+    src/glwidget.cpp
     # -------------------------------------------------------
     # shaders
     include/shaders.h
@@ -79,6 +91,17 @@ set(
     # image
     include/image.h
     # --------------------------------------------------------
+    # file util
+    include/fileutil.h
+    src/fileutil.cpp
+    # --------------------------------------------------------
+    # filelistwidget
+    include/filelistwidget.h
+    src/filelistwidget.cpp
+    # --------------------------------------------------------
+    # filelistmodel
+    include/filelistmodel.h
+    src/filelistmodel.cpp
     # tranlation
     ${TS_FILES}
 )
@@ -88,12 +111,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${PROJECT_NAME}
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        src/filelistwidget.cpp
-        include/filelistwidget.h
-        include/fileutil.h
-        src/fileutil.cpp
-        include/filelistmodel.h
-        src/filelistmodel.cpp
     )
     # Define target properties for Android with Qt 6 as:
     #    set_property(TARGET ReView APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -135,6 +152,7 @@ target_link_libraries(
     Qt${QT_VERSION_MAJOR}::OpenGL
     Qt${QT_VERSION_MAJOR}::OpenGLWidgets
     ${OpenCV_LIBS}
+    Exiv2::exiv2lib
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

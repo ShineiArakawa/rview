@@ -1,5 +1,7 @@
 #include <maincontrol.h>
 
+#include <exiv2/exiv2.hpp>
+
 MainControl::MainControl()
     : _fileListModel(std::make_shared<FileListModel>()) {
 }
@@ -67,6 +69,28 @@ ImageData MainControl::getImageData(const fs::path& filename) const {
 
   if (image.empty()) {
     return ImageData();
+  }
+
+  try {
+    auto exifImg = Exiv2::ImageFactory::open(FileUtil::pathToString(filePath));
+    exifImg->readMetadata();
+    Exiv2::ExifData& exifData = exifImg->exifData();
+    int64_t orientation = exifData["Exif.Image.Orientation"].toInt64();
+
+    switch (orientation) {
+      case 6:  // 右に90度回転
+        cv::rotate(image, image, cv::ROTATE_90_CLOCKWISE);
+        break;
+      case 8:  // 左に90度回転
+        cv::rotate(image, image, cv::ROTATE_90_COUNTERCLOCKWISE);
+        break;
+      case 3:  // 180度回転
+        cv::rotate(image, image, cv::ROTATE_180);
+        break;
+        // その他の値ではそのまま
+    }
+  } catch (...) {
+    qInfo() << "Failed to read EXIF data: " << FileUtil::pathToString(filePath);
   }
 
   return ImageData(image, filePath);

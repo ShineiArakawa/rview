@@ -1,6 +1,7 @@
 .cache
 build
 .vscode
+isolated_deps
 
 # ------------------------------------
 # For CMake projects

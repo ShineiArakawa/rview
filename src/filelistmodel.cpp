@@ -1,5 +1,4 @@
 #include <filelistmodel.h>
-#include <naturalsort/naturalorder.h>
 
 #include <algorithm>
 
@@ -58,16 +57,18 @@ void FileListModel::updateCurrentDir(const fs::path& dirPath) {
   setCurrentDir(dirPath);
 }
 
-bool naturalCompare(const std::filesystem::path &a, const std::filesystem::path &b) {
-  std::string aStr = a.string();
-  std::string bStr = b.string();
+bool naturalCompare(const std::filesystem::path& a, const std::filesystem::path& b) {
+  std::string aStr = FileUtil::wstringToString(a.wstring());
+  std::string bStr = FileUtil::wstringToString(b.wstring());
 
   auto itA = aStr.begin(), itB = bStr.begin();
-  // 両文字列の終端に達するまでループ
   while (itA != aStr.end() && itB != bStr.end()) {
-    // 両方の位置で数字が始まっている場合
+    // Check range
+    if (*itA < 1 || *itA > 255 || *itB < 1 || *itB > 255) {
+      return false;  // Invalid character range
+    }
+
     if (std::isdigit(*itA) && std::isdigit(*itB)) {
-      // 数字部分を抜き出す
       std::string numA, numB;
       while (itA != aStr.end() && std::isdigit(*itA)) {
         numA.push_back(*itA);
@@ -101,7 +102,6 @@ bool naturalCompare(const std::filesystem::path &a, const std::filesystem::path 
   return aStr.size() < bStr.size();
 }
 
-
 std::vector<fs::path> FileListModel::getFileList() const {
   std::vector<fs::path> dirList;
   std::vector<fs::path> fileList;
@@ -127,9 +127,8 @@ std::vector<fs::path> FileListModel::getFileList() const {
   //     const std::string str_b = b.filename().string();
   //     return (natural_compare(str_a, str_b) == 0); });
 
-  std::sort(dirList.begin(),dirList.end(), naturalCompare);
-  std::sort(fileList.begin(),fileList.end(), naturalCompare);
-
+  std::sort(dirList.begin(), dirList.end(), naturalCompare);
+  std::sort(fileList.begin(), fileList.end(), naturalCompare);
 
   // Combine the directory and file lists
   fileList.insert(fileList.begin(), dirList.begin(), dirList.end());
