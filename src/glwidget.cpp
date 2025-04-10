@@ -125,7 +125,7 @@ void GLWidget::initializeGL() {
   _texture->create();
   _texture->bind();
   _texture->setFormat(QOpenGLTexture::RGBA32F);
-  _texture->setSize(TEXTURE_SIZE.x, TEXTURE_SIZE.y);
+  _texture->setSize(_textureSize.x, _textureSize.y);
   _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
   _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
   _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
@@ -170,9 +170,9 @@ void GLWidget::paintGL() {
       _program->setUniformValue("u_backgroundColor", _backgroundColor.r, _backgroundColor.g, _backgroundColor.b);
 
       // Set the texture size uniform
-      const glm::vec2 validTextureSize = glm::vec2(_textureSize.x / static_cast<float>(TEXTURE_SIZE.x),
-                                                   _textureSize.y / static_cast<float>(TEXTURE_SIZE.y));
-      _program->setUniformValue("u_textureSize", validTextureSize.x, validTextureSize.y);
+      // const glm::vec2 validTextureSize = glm::vec2(_textureSize.x / static_cast<float>(TEXTURE_SIZE.x),
+      //                                              _textureSize.y / static_cast<float>(TEXTURE_SIZE.y));
+      _program->setUniformValue("u_textureSize", 1.0f, 1.0f);
 
       _vao.bind();
       _glFunctions->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -298,19 +298,28 @@ void GLWidget::updateTexture(const cv::Mat &image) {
 
   makeCurrent();
 
-  _textureSize.x = image.cols;
-  _textureSize.y = image.rows;
+  // Upload the texture data
+  if (_textureSize.x != image.cols || _textureSize.y != image.rows) {
+    _textureSize.x = image.cols;
+    _textureSize.y = image.rows;
+
+    _texture->destroy();
+    _texture->create();
+
+    _texture->bind();
+    _texture->setFormat(QOpenGLTexture::RGBA32F);
+    _texture->setSize(_textureSize.x, _textureSize.y);
+    _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
+    _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
+    _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
+    _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
+    _texture->release();
+  }
 
   resetRectPosition();
 
   _texture->bind();
-  _texture->setData(
-      0, 0, 0,                             // Offset
-      _textureSize.x, _textureSize.y, 1,   // width, height, depth
-      QOpenGLTexture::PixelFormat::RGBA,   // source format
-      QOpenGLTexture::PixelType::Float32,  // source type
-      image.data                           // data pointer
-  );
+  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, image.data);
   _texture->release();
 
   doneCurrent();
