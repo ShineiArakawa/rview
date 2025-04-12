@@ -143,7 +143,7 @@ void AsyncImageLoader::loadImageImpl(const fs::path& filePath, std::promise<Imag
       promise.set_value(imageData);                   // Set the value in the promise
     }
 
-    qDebug() << "Image loaded:" << filePath.string().c_str();
+    qDebug() << "Image loaded:" << FileUtil::pathToQString(filePath);
   } catch (...) {
     std::exception_ptr ep = std::current_exception();
     promise.set_exception(ep);
@@ -180,7 +180,7 @@ ImageData AsyncImageLoader::getImage(const fs::path& filePath) {
   // ------------------------------------------------------------------------------------------------------------
   if (const auto& it = std::find(_imagePaths.begin(), _imagePaths.end(), filePath); it == _imagePaths.end()) {
     // Not found in the list of paths to load
-    qInfo() << "File is not included in file entries: " << FileUtil::pathToString(filePath);
+    qInfo() << "File is not included in file entries: " << FileUtil::pathToQString(filePath);
     return imageData;
   }
 
