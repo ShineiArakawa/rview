@@ -13,6 +13,10 @@ FileListModelBase::FileListModelBase()
 }
 
 void FileListModelBase::setCurrentDir(const fs::path& dirPath) {
+  if (_cursor >= 0 && _dirPathHistory[_cursor] == dirPath) {
+    return;  // No change in the current directory
+  }
+
   if (_cursor < static_cast<int>(_dirPathHistory.size()) - 1) {
     // Re-initialize the history with empty paths
     if (_dirPathHistory[_cursor + 1] != fs::path()) {
