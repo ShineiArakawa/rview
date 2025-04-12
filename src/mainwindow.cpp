@@ -1,6 +1,9 @@
+#include <common.h>
 #include <mainwindow.h>
 
+#include <QFileDialog>
 #include <QFileIconProvider>
+#include <QMessageBox>
 #include <algorithm>
 #include <cctype>
 
@@ -9,13 +12,21 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
       _ui(new Ui::MainWindow),
-      _control(std::make_shared<MainControl>()) {
+      _control(std::make_shared<MainControl>()),
+      _resampleActionGroup(new QActionGroup(this)) {
   // ------------------------------------------------------------------------------------------
   // Set up ui
   _ui->setupUi(this);
 
   setWindowIcon(QIcon(":/icons/appico.ico"));
-  setWindowTitle(WINDOW_TITLE);
+  setWindowTitle(Common::WINDOW_TITLE);
+
+  // Set splitter sizes
+  const int currentWindowWidth = width();
+  const int glwidgetWidth = static_cast<int>(currentWindowWidth * Common::DEFAULT_GLWIDGET_WIDTH_RATIO);
+  QList<int> sizes;
+  sizes << (currentWindowWidth - glwidgetWidth) << glwidgetWidth;
+  _ui->splitter->setSizes(sizes);
 
   // ------------------------------------------------------------------------------------------
   // Set main controller
@@ -28,17 +39,40 @@ MainWindow::MainWindow(QWidget* parent)
 
   // ------------------------------------------------------------------------------------------
   // Connect signals
+  connect(_ui->fileListWidget, &FileListWidget::signal_goParent, this, &MainWindow::goParent);
+  connect(_ui->fileListWidget, &FileListWidget::signal_goChild, this, &MainWindow::goChild);
   connect(_ui->fileListWidget, &FileListWidget::signal_goBack, this, &MainWindow::goBack);
-
   connect(_ui->fileListWidget, &FileListWidget::signal_goForward, this, &MainWindow::goForward);
+
+  // ------------------------------------------------------------------------------------------
+  // Action group
+  {
+    // Resample action group
+    _resampleActionGroup->setExclusive(true);
+    _ui->actionNearest->setActionGroup(_resampleActionGroup);
+    _ui->actionBilinear->setActionGroup(_resampleActionGroup);
+    _ui->actionBicubic->setActionGroup(_resampleActionGroup);
+    _ui->actionLanczos4->setActionGroup(_resampleActionGroup);
+  }
 }
 
 MainWindow::~MainWindow() {
   delete _ui;
+  delete _resampleActionGroup;
 }
+
+// ##############################################################################################################################
+// Functions
+// ##############################################################################################################################
 
 void MainWindow::updateCurrentDir(const fs::path& dirPath) {
   const auto& currentDirPath = _control->getCurrentDir();
+
+  // Check if the new directory exists and is a directory
+  if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
+    qDebug() << "Invalid directory path: " << FileUtil::pathToString(dirPath);
+    return;
+  }
 
   try {
     _control->setCurrentDir(dirPath);
@@ -54,16 +88,16 @@ void MainWindow::updateCurrentDir(const fs::path& dirPath) {
 void MainWindow::updateFileList() {
   QFileIconProvider fileIconProvider;
 
-  auto localFiles = _control->getFileList();
+  const auto& localFiles = _control->getFileList();
 
   _ui->fileListWidget->clear();
-  _ui->fileListWidget->addItem(PATENT_DIR_REL_PATH);
+  _ui->fileListWidget->addItem(Common::PATENT_DIR_REL_PATH);
 
   for (const auto& file : localFiles) {
     try {
       if (fs::is_directory(file) || fs::is_regular_file(file) || fs::is_symlink(file)) {
         const QFileInfo info(FileUtil::pathToQString(file));
-        const auto icon = fileIconProvider.icon(info);
+        const auto& icon = fileIconProvider.icon(info);
 
         QListWidgetItem* item = new QListWidgetItem(icon, FileUtil::pathToQString(file.filename()));
 
@@ -73,6 +107,59 @@ void MainWindow::updateFileList() {
       // Log the error or handle it accordingly
       qInfo() << "Error accessing file: " << e.what();
     }
+  }
+}
+
+void MainWindow::updateImage(const fs::path& fileName) {
+  const auto& imageData = _control->getImageData(fileName);
+
+  if (!imageData.empty()) {
+    // Set the image data to the OpenGL widget
+    updateImage(imageData);
+
+    // Set window title
+    const auto& filePath = imageData.path;
+    const auto& fileNameStr = FileUtil::pathToQString(filePath);
+    setWindowTitle(Common::WINDOW_TITLE + " - " + fileNameStr);
+  }
+}
+
+void MainWindow::updateImage(const ImageData& imageData) {
+  if (imageData.empty()) {
+    return;
+  }
+
+  // Set the image data to the OpenGL widget
+  _ui->glwidget->updateTexture(imageData.image);
+}
+
+void MainWindow::goParent() {
+  const QString currentDirName = FileUtil::pathToQString(_control->getCurrentDir().filename());
+
+  if (_control->goParent()) {
+    updateCurrentDir(_control->getCurrentDir());
+
+    // Select the parent directory in the file list
+    const auto parentItemList = _ui->fileListWidget->findItems(currentDirName, Qt::MatchExactly);
+    for (const auto& item : parentItemList) {
+      _ui->fileListWidget->setCurrentItem(item);
+      _ui->fileListWidget->scrollToItem(item);
+    }
+  }
+}
+
+void MainWindow::goChild() {
+  // Get the selected item
+  QListWidgetItem* currentItem = _ui->fileListWidget->currentItem();
+  if (currentItem == nullptr) {
+    return;
+  }
+
+  // Get the file name from the selected item
+  const auto& fileName = FileUtil::qStringToPath(currentItem->text());
+
+  if (_control->goChild(fileName)) {
+    updateCurrentDir(_control->getCurrentDir());
   }
 }
 
@@ -86,11 +173,20 @@ void MainWindow::goForward() {
   updateCurrentDir(_control->getCurrentDir());
 }
 
-void MainWindow::updateImage(const ImageData& imageData) {
-  if (imageData.empty()) {
-    return;
+void MainWindow::quit(bool needConfirm) {
+  if (needConfirm) {
+    const auto ret = QMessageBox::question(this,
+                                           tr("Exit"),
+                                           tr("Are you sure you want to exit?"),
+                                           QMessageBox::Yes | QMessageBox::No,
+                                           QMessageBox::No);
+
+    if (ret == QMessageBox::No) {
+      return;
+    }
   }
-  _ui->glwidget->updateTexture(imageData.image);
+
+  QApplication::exit();
 }
 
 // ##############################################################################################################################
@@ -98,13 +194,7 @@ void MainWindow::updateImage(const ImageData& imageData) {
 // ##############################################################################################################################
 void MainWindow::on_currentDirPath_returnPressed() {
   const auto dirPath = fs::absolute(FileUtil::qStringToPath(_ui->currentDirPath->text()));
-
-  if (fs::exists(dirPath) && fs::is_directory(dirPath)) {
-    updateCurrentDir(dirPath);
-  } else {
-    // Log the error or handle it accordingly
-    qInfo() << "Invalid directory path: " << FileUtil::pathToString(dirPath);
-  }
+  updateCurrentDir(dirPath);
 }
 
 void MainWindow::on_fileListWidget_itemDoubleClicked(QListWidgetItem* item) {
@@ -119,7 +209,7 @@ void MainWindow::on_fileListWidget_itemDoubleClicked(QListWidgetItem* item) {
   fs::path newDirPath;
 
   try {
-    if (fileName == PATENT_DIR_REL_PATH) {
+    if (fileName == Common::PATENT_DIR_REL_PATH) {
       // Go to the parent directory
       const auto parentDir = _control->getCurrentDir().parent_path();
 
@@ -154,8 +244,43 @@ void MainWindow::on_fileListWidget_currentItemChanged(QListWidgetItem* current, 
     return;
   }
 
-  const auto fileName = FileUtil::qStringToPath(current->text());
-  const auto imageData = _control->getImageData(fileName);
+  updateImage(FileUtil::qStringToPath(current->text()));
+}
 
-  updateImage(imageData);
+// ----------------------------------------------------------------------------------------------------------------------------------
+// 'File' menu
+
+void MainWindow::on_actionOpenDir_triggered() {
+  const auto currentDirPath = FileUtil::pathToQString(fs::absolute(_control->getCurrentDir()));
+
+  const auto dirPath = QFileDialog::getExistingDirectory(this,
+                                                         tr("Open Directory"),
+                                                         currentDirPath);
+
+  if (!dirPath.isEmpty()) {
+    updateCurrentDir(FileUtil::qStringToPath(dirPath));
+  }
+}
+
+// ----------------------------------------------------------------------------------------------------------------------------------
+// 'Resample' menu
+
+void MainWindow::on_actionNearest_triggered() {
+  _ui->glwidget->setShaderType(ImageShaderType::NEAREST);
+  qDebug() << "Switched to Nearest shader";
+}
+
+void MainWindow::on_actionBilinear_triggered() {
+  _ui->glwidget->setShaderType(ImageShaderType::BILINEAR);
+  qDebug() << "Switched to Bilinear shader";
+}
+
+void MainWindow::on_actionBicubic_triggered() {
+  _ui->glwidget->setShaderType(ImageShaderType::BICUBIC);
+  qDebug() << "Switched to Bicubic shader";
+}
+
+void MainWindow::on_actionLanczos4_triggered() {
+  _ui->glwidget->setShaderType(ImageShaderType::LANCZOS4);
+  qDebug() << "Switched to Lanczos4 shader";
 }

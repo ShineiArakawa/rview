@@ -3,27 +3,28 @@
 
 #include <fileutil.h>
 
+#include <array>
+
 // ######################################################################################
 // FileListModelBase
 // ######################################################################################
 class FileListModelBase {
  private:
-  std::vector<fs::path> _dirPathHistory;
-  size_t _dirPathHistoryIndex;
+  static inline const size_t MAX_DIR_PATH_HISTORY_SIZE = 30;
+
+  std::array<fs::path, MAX_DIR_PATH_HISTORY_SIZE> _dirPathHistory;
+  int _cursor;
 
  protected:
   void setCurrentDir(const fs::path& dirPath);
 
  public:
-  static inline const size_t MAX_DIR_PATH_HISTORY_SIZE = 30;
-
   explicit FileListModelBase();
   virtual ~FileListModelBase() = default;
 
   fs::path getCurrentDir() const;
 
   void goBack();
-
   void goForward();
 };
 
@@ -41,6 +42,8 @@ class FileListModel : public FileListModelBase {
 
   void updateCurrentDir(const fs::path& dirPath);
   std::vector<fs::path> getFileList(bool filesOnly = false) const;
+
+  static bool naturalCompare(const fs::path& a, const fs::path& b);
 };
 
 using FileListModel_t = std::shared_ptr<FileListModel>;

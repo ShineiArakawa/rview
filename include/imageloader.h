@@ -47,8 +47,8 @@ using ThreadPool_t = std::shared_ptr<ThreadPool>;
 
 class AsyncImageLoader {
  public:
-  AsyncImageLoader(int numThreads = 4,
-                   int numPreloadedImages = 16);
+  AsyncImageLoader(int numThreads,
+                   int numPreloadedImages);
   ~AsyncImageLoader();
 
   void loadImageImpl(const fs::path& filePath, std::promise<ImageData>&& promise);
@@ -59,12 +59,13 @@ class AsyncImageLoader {
  private:
   ThreadPool_t _threadPool;
 
-  std::map<fs::path, ImageData> _images;
   std::mutex _imageMutex;
   std::map<fs::path, std::future<ImageData>> _futures;
 
   int _numPreloadedImages;
   std::vector<fs::path> _imagePaths;
+
+  std::map<fs::path, ImageData> _imageCache;
 };
 
 using AsyncImageLoader_t = std::shared_ptr<AsyncImageLoader>;

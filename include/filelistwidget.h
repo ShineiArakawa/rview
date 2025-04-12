@@ -3,6 +3,7 @@
 
 #include <maincontrol.h>
 
+#include <QKeyEvent>
 #include <QListWidget>
 #include <QMouseEvent>
 
@@ -14,21 +15,21 @@ class FileListWidget : public QListWidget {
 
  signals:
   void signal_updateLocalFileList();
-
   void signal_updateRemoteFileList();
-
+  void signal_goParent();
+  void signal_goChild();
   void signal_goBack();
-
   void signal_goForward();
+
+ protected:
+  void keyPressEvent(QKeyEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
 
  public:
   explicit FileListWidget(QWidget* parent = nullptr);
   ~FileListWidget() = default;
 
   void setMainControl(MainControl_t& control);
-
- protected:
-  void mouseReleaseEvent(QMouseEvent* event) override;
 };
 
 #endif  // FILELISTWIDGET_H

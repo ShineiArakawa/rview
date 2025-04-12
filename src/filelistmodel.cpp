@@ -5,43 +5,48 @@
 // -------------------------------------------------------------------------------------------------------------------
 // FileListModelBase
 FileListModelBase::FileListModelBase()
-    : _dirPathHistory(MAX_DIR_PATH_HISTORY_SIZE),
-      _dirPathHistoryIndex(0) {
+    : _dirPathHistory(),
+      _cursor(-1) {
+  for (size_t i = 0; i < _dirPathHistory.size(); ++i) {
+    _dirPathHistory[i] = fs::path();
+  }
 }
 
 void FileListModelBase::setCurrentDir(const fs::path& dirPath) {
-  if (_dirPathHistoryIndex == 0 || _dirPathHistory[_dirPathHistoryIndex - 1] != dirPath) {
-    // Clear the history after the current index
-    for (size_t i = _dirPathHistoryIndex; i < _dirPathHistory.size(); i++) {
-      _dirPathHistory[i] = fs::path();
+  if (_cursor < static_cast<int>(_dirPathHistory.size()) - 1) {
+    // Re-initialize the history with empty paths
+    if (_dirPathHistory[_cursor + 1] != fs::path()) {
+      std::fill(_dirPathHistory.begin() + _cursor + 1, _dirPathHistory.end(), fs::path());
     }
 
-    _dirPathHistory[_dirPathHistoryIndex] = dirPath;
-#if defined(_WIN32)
-    _dirPathHistoryIndex = min(_dirPathHistoryIndex + 1, MAX_DIR_PATH_HISTORY_SIZE);
-#else
-    _dirPathHistoryIndex = std::min(_dirPathHistoryIndex + 1, MAX_DIR_PATH_HISTORY_SIZE);
-#endif
+    _cursor++;
+  } else {
+    // If the history is full, remove the oldest entry
+    std::rotate(_dirPathHistory.begin(), _dirPathHistory.begin() + 1, _dirPathHistory.end());
   }
+
+  _dirPathHistory[_cursor] = dirPath;  // Set the current directory path
 }
 
 fs::path FileListModelBase::getCurrentDir() const {
-  if (_dirPathHistoryIndex == 0) {
+  if (_cursor < 0) {
     return fs::path();
   }
 
-  return _dirPathHistory[_dirPathHistoryIndex - 1];
+  return _dirPathHistory[_cursor];
 }
 
 void FileListModelBase::goBack() {
-  if (_dirPathHistoryIndex > 1) {
-    _dirPathHistoryIndex--;
+  if (_cursor > 0) {  // Check if the previous index is within bounds
+    _cursor--;
   }
 }
 
 void FileListModelBase::goForward() {
-  if (_dirPathHistoryIndex < _dirPathHistory.size() && _dirPathHistory[_dirPathHistoryIndex] != fs::path()) {
-    _dirPathHistoryIndex++;
+  if (_cursor < static_cast<int>(_dirPathHistory.size()) - 1  // Check if the next index is within bounds
+      && _dirPathHistory[_cursor + 1] != fs::path()           // Check if the next path is valid
+  ) {
+    _cursor++;
   }
 }
 
@@ -57,13 +62,13 @@ void FileListModel::updateCurrentDir(const fs::path& dirPath) {
   setCurrentDir(dirPath);
 }
 
-bool naturalCompare(const std::filesystem::path& a, const std::filesystem::path& b) {
+bool FileListModel::naturalCompare(const fs::path& a, const fs::path& b) {
 #ifdef _WIN32
-  std::string aStr = FileUtil::wstringToString(a.wstring());
-  std::string bStr = FileUtil::wstringToString(b.wstring());
+  const std::string aStr = FileUtil::wstringToString(a.wstring());
+  const std::string bStr = FileUtil::wstringToString(b.wstring());
 #else
-  std::string aStr = a.string();
-  std::string bStr = b.string();
+  const std::string aStr = a.string();
+  const std::string bStr = b.string();
 #endif
 
   auto ai = aStr.begin(), bi = bStr.begin();
@@ -114,7 +119,7 @@ std::vector<fs::path> FileListModel::getDirList() const {
     }
   }
 
-  std::sort(dirList.begin(), dirList.end(), naturalCompare);
+  std::sort(dirList.begin(), dirList.end(), FileListModel::naturalCompare);
 
   return dirList;
 }
@@ -130,7 +135,7 @@ std::vector<fs::path> FileListModel::getOnlyFileList() const {
     }
   }
 
-  std::sort(fileList.begin(), fileList.end(), naturalCompare);
+  std::sort(fileList.begin(), fileList.end(), FileListModel::naturalCompare);
 
   return fileList;
 }
@@ -140,7 +145,7 @@ std::vector<fs::path> FileListModel::getFileList(bool filesOnly) const {
 
   if (!filesOnly) {
     // Combine the directory and file lists
-    std::vector<fs::path> dirList = getDirList();
+    const std::vector<fs::path>& dirList = getDirList();
     fileList.insert(fileList.begin(), dirList.begin(), dirList.end());
   }
 

@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(RView VERSION 0.1 LANGUAGES CXX)
+project(RView VERSION 0.1 LANGUAGES C CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
+# --------------------------------------------------------------------
+# Options
+option(LIBEXIF_INCLUDE_DIR "Include directory for libexif" "")
+option(LIBEXIF_LIB_DIR "Library directory for libexif" "")
 
 # --------------------------------------------------------------------
 # C++ settings
@@ -31,6 +35,11 @@ elseif(UNIX)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 endif()
 
+if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
+    add_definitions(-DRVIEW_DEBUG_BUILD)
+    message(STATUS "Added \"-DRVIEW_DEBUG_BUILD\" to compiler flags")
+endif()
+
 # --------------------------------------------------------------------
 # Find libraries
 find_package(
@@ -52,8 +61,14 @@ set(OpenCV_SHARED off)
 set(OpenCV_STATIC on)
 find_package(OpenCV REQUIRED)
 
-# Find exiv2 for image metadata
-find_package(Exiv2 REQUIRED)
+# Find libexif
+if(LIBEXIF_INCLUDE_DIR AND LIBEXIF_LIB_DIR)
+    message(STATUS "Using libexif")
+    set(LIBEXIF_INCLUDE_DIRS ${LIBEXIF_INCLUDE_DIR} CACHE PATH "Include directory for libexif")
+    set(LIBEXIF_LIB_DIRS ${LIBEXIF_LIB_DIR} CACHE PATH "Library directory for libexif")
+    set(LIBEXIF_LIBRARIES libexif.a)
+    add_definitions(-DWITH_LIBEXIF)
+endif()
 
 # --------------------------------------------------------------------
 # Third party libraries
@@ -87,6 +102,7 @@ set(
     # -------------------------------------------------------
     # shaders
     include/shaders.h
+    src/shaders.cpp
     # -------------------------------------------------------
     # image
     include/image.h
@@ -109,6 +125,9 @@ set(
     # --------------------------------------------------------
     # tranlation
     ${TS_FILES}
+    # --------------------------------------------------------
+    # common
+    include/common.h
     # --------------------------------------------------------
     # resource
     resource/icon.rc
@@ -169,7 +188,16 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
     ${OpenCV_INCLUDE_DIRS}
+    ${LIBEXIF_INCLUDE_DIRS}
 )
+
+if(LIBEXIF_INCLUDE_DIRS)
+    target_link_directories(
+        ${PROJECT_NAME}
+        PRIVATE
+        ${LIBEXIF_LIB_DIRS}
+    )
+endif()
 
 target_link_libraries(
     ${PROJECT_NAME}
@@ -178,8 +206,9 @@ target_link_libraries(
     Qt${QT_VERSION_MAJOR}::OpenGL
     Qt${QT_VERSION_MAJOR}::OpenGLWidgets
     ${OpenCV_LIBS}
-    Exiv2::exiv2lib
+    ${LIBEXIF_LIBRARIES}
 )
+
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
@@ -214,3 +243,28 @@ install(
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(${PROJECT_NAME})
 endif()
+
+# Message
+############################################################################################################
+message(STATUS "# =======================================================================================================")
+message(STATUS "#  '${PROJECT_NAME}' build configuration ")
+message(STATUS "# =======================================================================================================")
+message(STATUS "#  [CMake]")
+message(STATUS "#    CMake version                        : ${CMAKE_VERSION}")
+message(STATUS "#    CMake build type                     : ${CMAKE_BUILD_TYPE}")
+message(STATUS "#    CMAKE_CXX_FLAGS                      : ${CMAKE_CXX_FLAGS}")
+message(STATUS "#    CMAKE_CXX_FLAGS_DEBUG                : ${CMAKE_CXX_FLAGS_DEBUG}")
+message(STATUS "#    CMAKE_CXX_FLAGS_RELEASE              : ${CMAKE_CXX_FLAGS_RELEASE}")
+message(STATUS "# ")
+message(STATUS "#  [C/C++]")
+message(STATUS "#    C   Compiler                         : ${CMAKE_C_COMPILER_ID} | ${CMAKE_C_COMPILER_VERSION} | ${CMAKE_C_COMPILER}")
+message(STATUS "#    C++ Compiler                         : ${CMAKE_CXX_COMPILER_ID} | ${CMAKE_CXX_COMPILER_VERSION} | ${CMAKE_CXX_COMPILER}")
+message(STATUS "#    CXX STANDARD                         : ${CMAKE_CXX_STANDARD}")
+message(STATUS "# ")
+message(STATUS "#  [Cache Variables]")
+message(STATUS "#    OpenCV_INCLUDE_DIRS                  : ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "#    OpenCV_LIBS                          : ${OpenCV_LIBS}")
+message(STATUS "#    LIBEXIF_INCLUDE_DIRS                 : ${LIBEXIF_INCLUDE_DIRS}")
+message(STATUS "#    LIBEXIF_LIB_DIRS                     : ${LIBEXIF_LIB_DIRS}")
+message(STATUS "#    LIBEXIF_LIBRARIES                    : ${LIBEXIF_LIBRARIES}")
+message(STATUS "# =======================================================================================================")

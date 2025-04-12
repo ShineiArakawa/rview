@@ -10,10 +10,11 @@ GLWidget::GLWidget(QWidget *parent)
       _rectBottomRight(1.0f, 1.0f),
       _backgroundColor(0.1f, 0.1f, 0.1f),
       _oldWindowSize(0, 0),
+      _shaderType(ImageShaderType::NEAREST),
       _vao(),
-      _program(nullptr),
       _vertexBuffer(QOpenGLBuffer::VertexBuffer),
       _indexBuffer(QOpenGLBuffer::IndexBuffer),
+      _imageShader(nullptr),
       _texture(nullptr),
       _glFunctions(nullptr),
       _isDragging(false) {
@@ -22,21 +23,17 @@ GLWidget::GLWidget(QWidget *parent)
 GLWidget::~GLWidget() {
   makeCurrent();
 
-  _program->release();
   _vertexBuffer.release();
   _indexBuffer.release();
   _vao.release();
   _texture->release();
 
-  _program->deleteLater();
-  _program->removeAllShaders();
   _texture->destroy();
   _vertexBuffer.destroy();
   _indexBuffer.destroy();
   _vao.destroy();
 
   delete _texture;
-  delete _program;
 
   doneCurrent();
 }
@@ -55,13 +52,7 @@ void GLWidget::initializeGL() {
   // -----------------------------------------------------------------------------
   // Build the shader program
 
-  _program = new QOpenGLShaderProgram();
-
-  _program->addShaderFromSourceCode(QOpenGLShader::Vertex, DefaultShader::VERTEX_SHADER_CODE);
-  _program->addShaderFromSourceCode(QOpenGLShader::Fragment, DefaultShader::FRAGMENT_SHADER_CODE);
-
-  _program->link();
-  _program->bind();
+  _imageShader = std::make_shared<ImageShader>();
 
   // -----------------------------------------------------------------------------
   // Create a quad
@@ -97,13 +88,19 @@ void GLWidget::initializeGL() {
   _vertexBuffer.setUsagePattern(QOpenGLBuffer::StaticDraw);
   _vertexBuffer.allocate(vertices.data(), sizeof(Vertex) * vertices.size());
 
-  _program->enableAttributeArray(0);
+  // Set the vertex attribute pointers to all programs
+  for (const auto &[type, program] : _imageShader->getShaderPrograms()) {
+    program->bind();
+
+    program->enableAttributeArray(0);
+    program->enableAttributeArray(1);
+    program->enableAttributeArray(2);
+
+    program->release();
+  }
+
   _glFunctions->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
-
-  _program->enableAttributeArray(1);
   _glFunctions->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
-
-  _program->enableAttributeArray(2);
   _glFunctions->glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, uv));
 
   // Index buffer object
@@ -151,28 +148,23 @@ void GLWidget::paintGL() {
 
   _glFunctions->glDisable(GL_DEPTH_TEST);
 
+  const auto &program = _imageShader->getShaderProgram(_shaderType);
+
   {
-    _program->bind();
+    program->bind();
 
     {
       // Activate the texture
       _texture->bind();
-      _program->setUniformValue("u_texture", 0);
 
-      // Set the pixel size uniform
-      _program->setUniformValue("u_pixelSize", 1.0f / width(), 1.0f / height());
-
-      // Set the rectangle position uniform
-      _program->setUniformValue("u_rectTopLeft", _rectTopLeft.x, _rectTopLeft.y);
-      _program->setUniformValue("u_rectBottomRight", _rectBottomRight.x, _rectBottomRight.y);
-
-      // Set the background color uniform
-      _program->setUniformValue("u_backgroundColor", _backgroundColor.r, _backgroundColor.g, _backgroundColor.b);
-
-      // Set the texture size uniform
-      // const glm::vec2 validTextureSize = glm::vec2(_textureSize.x / static_cast<float>(TEXTURE_SIZE.x),
-      //                                              _textureSize.y / static_cast<float>(TEXTURE_SIZE.y));
-      _program->setUniformValue("u_textureSize", 1.0f, 1.0f);
+      // clang-format off
+      program->setUniformValue(ImageShaderBase::UNIFORM_NAME_TEXTURE           , 0);
+      program->setUniformValue(ImageShaderBase::UNIFORM_NAME_PIXEL_SIZE        , 1.0f / width(), 1.0f / height());
+      program->setUniformValue(ImageShaderBase::UNIFORM_NAME_RECT_TOP_LEFT     , _rectTopLeft.x, _rectTopLeft.y);
+      program->setUniformValue(ImageShaderBase::UNIFORM_NAME_RECT_BOTTOM_RIGHT , _rectBottomRight.x, _rectBottomRight.y);
+      program->setUniformValue(ImageShaderBase::UNIFORM_NAME_BACKGROUND_COLOR  , _backgroundColor.r, _backgroundColor.g, _backgroundColor.b);
+      program->setUniformValue(ImageShaderBase::UNIFORM_NAME_TEXTURE_SIZE      , _textureSize.x, _textureSize.y);
+      // clang-format on
 
       _vao.bind();
       _glFunctions->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -181,7 +173,7 @@ void GLWidget::paintGL() {
       _texture->release();
     }
 
-    _program->release();
+    program->release();
   }
 
   _glFunctions->glEnable(GL_DEPTH_TEST);
@@ -271,17 +263,22 @@ void GLWidget::wheelEvent(QWheelEvent *event) {
   const float steps = degrees / 15.0f;
 
   // 各ステップごとに1.1倍/0.9倍で拡大縮小する（複数ステップの場合は累乗する）
-  const float scaleFactor = std::pow(1.1f, steps);
+  float scaleFactor = std::pow(1.1f, steps);
+
+  // 小さくなりすぎないようにする
+  const glm::vec2 currentSize = _rectBottomRight - _rectTopLeft;
+  if (scaleFactor < 1.0f && (currentSize.x < 1.0 / width() || currentSize.y < 1.0 / height())) {
+    scaleFactor = 1.0f;
+  }
 
   // 現在の画像表示領域の中心を計算
   const glm::vec2 center = (_rectBottomRight + _rectTopLeft) / 2.0f;
-  const glm::vec2 windowCenter(0.5f, 0.5f);
 
   _rectTopLeft = (_rectTopLeft - center) * scaleFactor;
   _rectBottomRight = (_rectBottomRight - center) * scaleFactor;
 
   // 新しい中心を計算
-  const glm::vec2 newCenter = (center - windowCenter) * scaleFactor + windowCenter;
+  const glm::vec2 newCenter = (center - 0.5f) * scaleFactor + 0.5f;
   _rectTopLeft += newCenter;
   _rectBottomRight += newCenter;
 
@@ -325,6 +322,13 @@ void GLWidget::updateTexture(const cv::Mat &image) {
   doneCurrent();
 
   // Update
+  update();
+}
+
+void GLWidget::setShaderType(ImageShaderType type) {
+  _shaderType = type;
+
+  // Update the view
   update();
 }
 

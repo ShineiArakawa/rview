@@ -33,6 +33,9 @@ class MainControl {
   void setCurrentDir(const fs::path& dirPath);
   fs::path getCurrentDir() const;
   std::vector<fs::path> getFileList() const;
+
+  bool goParent();
+  bool goChild(const fs::path& fileName);
   void goBack();
   void goForward();
 

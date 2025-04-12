@@ -3,6 +3,8 @@
 #define GLM_FORCE_SWIZZLE
 #define GLM_FORCE_RADIANS
 #define GLM_ENABLE_EXPERIMENTAL
+#include <shaders.h>
+
 #include <QMouseEvent>
 #include <QOpenGLBuffer>
 #include <QOpenGLContext>
@@ -42,10 +44,10 @@ class GLWidget : public QOpenGLWidget {
   ~GLWidget();
 
   void updateTexture(const cv::Mat &image);
+  void setShaderType(ImageShaderType type);
 
  protected:
-  void
-  initializeGL() override;
+  void initializeGL() override;
   void resizeGL(int w, int h) override;
   void paintGL() override;
   void mousePressEvent(QMouseEvent *event) override;
@@ -61,7 +63,8 @@ class GLWidget : public QOpenGLWidget {
 
   glm::vec3 _backgroundColor;
 
-  QOpenGLShaderProgram *_program;
+  std::shared_ptr<ImageShader> _imageShader;
+  ImageShaderType _shaderType;
 
   QOpenGLVertexArrayObject _vao;
   QOpenGLBuffer _vertexBuffer;

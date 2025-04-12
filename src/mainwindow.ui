@@ -42,12 +42,12 @@
        <bool>true</bool>
       </property>
       <property name="handleWidth">
-       <number>5</number>
+       <number>8</number>
       </property>
       <property name="childrenCollapsible">
        <bool>false</bool>
       </property>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout">
         <property name="spacing">
          <number>3</number>
@@ -170,7 +170,64 @@
      <height>43</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionOpenDir"/>
+   </widget>
+   <widget class="QMenu" name="menuResample">
+    <property name="title">
+     <string>Resample</string>
+    </property>
+    <addaction name="actionNearest"/>
+    <addaction name="actionBilinear"/>
+    <addaction name="actionBicubic"/>
+    <addaction name="actionLanczos4"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuResample"/>
   </widget>
+  <action name="actionOpenDir">
+   <property name="text">
+    <string>Open</string>
+   </property>
+  </action>
+  <action name="actionNearest">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Nearest</string>
+   </property>
+  </action>
+  <action name="actionBilinear">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Bilinear</string>
+   </property>
+  </action>
+  <action name="actionBicubic">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Bicubic</string>
+   </property>
+  </action>
+  <action name="actionLanczos4">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Lanczos4</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>

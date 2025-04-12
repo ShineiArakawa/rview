@@ -5,8 +5,10 @@
 #include <glwidget.h>
 #include <maincontrol.h>
 
+#include <QActionGroup>
 #include <QListWidgetItem>
 #include <QMainWindow>
+#include <QMenuBar>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -18,28 +20,38 @@ class MainWindow : public QMainWindow {
   Q_OBJECT
 
  private:
-  static inline const QString WINDOW_TITLE = "RView";
-  static inline const QString PATENT_DIR_REL_PATH = "..";
+  Ui::MainWindow *_ui;
+  MainControl_t _control;
+  QActionGroup *_resampleActionGroup;
 
- public:
-  MainWindow(QWidget *parent = nullptr);
-  ~MainWindow();
+  void updateFileList();
+  void updateImage(const fs::path &fileName);
+  void updateImage(const ImageData &imageData);
 
-  void updateCurrentDir(const fs::path &dirPath);
+  void goParent();
+  void goChild();
+  void goBack();
+  void goForward();
+
+  void quit(bool needConfirm = false);
 
  private slots:
   void on_currentDirPath_returnPressed();
   void on_fileListWidget_itemDoubleClicked(QListWidgetItem *item);
   void on_fileListWidget_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
 
- private:
-  Ui::MainWindow *_ui;
-  MainControl_t _control;
+  // Menu bar
+  void on_actionNearest_triggered();
+  void on_actionOpenDir_triggered();
+  void on_actionBilinear_triggered();
+  void on_actionBicubic_triggered();
+  void on_actionLanczos4_triggered();
 
-  void updateFileList();
-  void goBack();
-  void goForward();
-  void updateImage(const ImageData &imageData);
+ public:
+  MainWindow(QWidget *parent = nullptr);
+  ~MainWindow();
+
+  void updateCurrentDir(const fs::path &dirPath);
 };
 
 #endif  // MAINWINDOW_H

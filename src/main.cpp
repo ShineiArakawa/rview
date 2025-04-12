@@ -5,7 +5,7 @@
 
 #include "mainwindow.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   // ------------------------------------------------------------------------------------------
   // Initialize opengl context
   // Set up OpenGL context format
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
   // Set up the application
   QTranslator translator;
   const QStringList uiLanguages = QLocale::system().uiLanguages();
-  for (const QString &locale : uiLanguages) {
+  for (const QString& locale : uiLanguages) {
     const QString baseName = "ReView_" + QLocale(locale).name();
     if (translator.load(":/i18n/" + baseName)) {
       a.installTranslator(&translator);
