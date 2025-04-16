@@ -12,7 +12,7 @@ MainControl::~MainControl() = default;
 void MainControl::setCurrentDir(const fs::path& dirPath) {
   // Check if the directory exists and is a directory
   if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
-    qInfo() << "Invalid directory path: " << FileUtil::pathToString(dirPath);
+    qInfo() << "Invalid directory path: " << FileUtil::pathToQString(dirPath);
     return;
   }
 
@@ -79,7 +79,7 @@ bool MainControl::goChild(const fs::path& fileName) {
     return true;
   }
 
-  qInfo() << "File is not a directory: " << FileUtil::pathToString(filePath);
+  qInfo() << "File is not a directory: " << FileUtil::pathToQString(filePath);
 
   return false;
 }
@@ -98,7 +98,7 @@ ImageData MainControl::getImageData(const fs::path& filename) const {
 
   // Check if the file exists and is a regular file
   if (!fs::exists(filePath) || !fs::is_regular_file(filePath)) {
-    qInfo() << "File does not exist or is not a regular file: " << FileUtil::pathToString(filePath);
+    qInfo() << "File does not exist or is not a regular file: " << FileUtil::pathToQString(filePath);
     return ImageData();
   }
 

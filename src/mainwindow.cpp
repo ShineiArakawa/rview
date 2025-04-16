@@ -76,7 +76,7 @@ void MainWindow::updateCurrentDir(const fs::path& dirPath) {
 
   // Check if the new directory exists and is a directory
   if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
-    qDebug() << "Invalid directory path: " << FileUtil::pathToString(dirPath);
+    qDebug() << "Invalid directory path: " << FileUtil::pathToQString(dirPath);
     return;
   }
 
@@ -296,7 +296,7 @@ void MainWindow::on_fileListWidget_itemDoubleClicked(QListWidgetItem* item) {
       // Open the directory
       newDirPath = filePath;
     } else {
-      qInfo() << "File is not a directory: " << FileUtil::pathToString(filePath);
+      qInfo() << "File is not a directory: " << FileUtil::pathToQString(filePath);
     }
   } catch (const std::filesystem::filesystem_error& e) {
     // Log the error or handle it accordingly
