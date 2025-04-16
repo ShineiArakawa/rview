@@ -20,6 +20,7 @@ class FileListWidget : public QListWidget {
   void signal_goChild();
   void signal_goBack();
   void signal_goForward();
+  void signal_copyImageToClipboard();
 
  protected:
   void keyPressEvent(QKeyEvent* event) override;

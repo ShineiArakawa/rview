@@ -11,10 +11,10 @@ GLWidget::GLWidget(QWidget *parent)
       _backgroundColor(0.1f, 0.1f, 0.1f),
       _oldWindowSize(0, 0),
       _shaderType(ImageShaderType::NEAREST),
+      _imageShader(nullptr),
       _vao(),
       _vertexBuffer(QOpenGLBuffer::VertexBuffer),
       _indexBuffer(QOpenGLBuffer::IndexBuffer),
-      _imageShader(nullptr),
       _texture(nullptr),
       _glFunctions(nullptr),
       _isDragging(false) {
@@ -123,10 +123,12 @@ void GLWidget::initializeGL() {
   _texture->bind();
   _texture->setFormat(QOpenGLTexture::RGBA32F);
   _texture->setSize(_textureSize.x, _textureSize.y);
-  _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
+  _texture->setMinificationFilter(QOpenGLTexture::Filter::NearestMipMapNearest);
   _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
+  _texture->setAutoMipMapGenerationEnabled(true);
   _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
   _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
+  _texture->generateMipMaps();
   _texture->release();
 
   _oldWindowSize = glm::ivec2(width(), height());
@@ -306,10 +308,12 @@ void GLWidget::updateTexture(const cv::Mat &image) {
     _texture->bind();
     _texture->setFormat(QOpenGLTexture::RGBA32F);
     _texture->setSize(_textureSize.x, _textureSize.y);
-    _texture->setMinificationFilter(QOpenGLTexture::Filter::Nearest);
+    _texture->setMinificationFilter(QOpenGLTexture::Filter::NearestMipMapNearest);
     _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
+    _texture->setAutoMipMapGenerationEnabled(true);
     _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
     _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
+    _texture->generateMipMaps();
     _texture->release();
   }
 

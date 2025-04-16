@@ -8,8 +8,8 @@ set(CMAKE_AUTORCC ON)
 
 # --------------------------------------------------------------------
 # Options
-option(LIBEXIF_INCLUDE_DIR "Include directory for libexif" "")
-option(LIBEXIF_LIB_DIR "Library directory for libexif" "")
+set(LIBEXIF_INCLUDE_DIRS "" CACHE PATH "Include directory for libexif")
+set(LIBEXIF_LIB_DIRS "" CACHE PATH "Library directory for libexif")
 
 # --------------------------------------------------------------------
 # C++ settings
@@ -47,25 +47,21 @@ find_package(
     NAMES
     Qt6 Qt5
     REQUIRED
-    COMPONENTS Widgets LinguistTools OpenGL OpenGLWidgets
+    COMPONENTS Core Widgets LinguistTools OpenGL OpenGLWidgets
 )
 
 find_package(
     Qt${QT_VERSION_MAJOR}
     REQUIRED
-    COMPONENTS Widgets LinguistTools OpenGL OpenGLWidgets
+    COMPONENTS Core Widgets LinguistTools OpenGL OpenGLWidgets
 )
 
 # Find OpenCV
-set(OpenCV_SHARED off)
-set(OpenCV_STATIC on)
 find_package(OpenCV REQUIRED)
 
 # Find libexif
-if(LIBEXIF_INCLUDE_DIR AND LIBEXIF_LIB_DIR)
+if(LIBEXIF_INCLUDE_DIRS AND LIBEXIF_LIB_DIRS)
     message(STATUS "Using libexif")
-    set(LIBEXIF_INCLUDE_DIRS ${LIBEXIF_INCLUDE_DIR} CACHE PATH "Include directory for libexif")
-    set(LIBEXIF_LIB_DIRS ${LIBEXIF_LIB_DIR} CACHE PATH "Library directory for libexif")
     set(LIBEXIF_LIBRARIES libexif.a)
     add_definitions(-DWITH_LIBEXIF)
 endif()
@@ -205,6 +201,7 @@ target_link_libraries(
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::OpenGL
     Qt${QT_VERSION_MAJOR}::OpenGLWidgets
+    Qt${QT_VERSION_MAJOR}::Core
     ${OpenCV_LIBS}
     ${LIBEXIF_LIBRARIES}
 )

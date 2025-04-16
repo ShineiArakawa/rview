@@ -256,7 +256,14 @@ ImageData AsyncImageLoader::getImage(const fs::path& filePath) {
     {
       std::lock_guard<std::mutex> lock(_imageMutex);
 
-      std::vector<fs::path> pathsToLoad(pathsToLoadAll);  // Call the copy constructor
+      std::vector<fs::path> pathsToLoad(pathsToLoadAll.size());
+      // Preferencially load the image current filePath
+      pathsToLoad.push_back(filePath);
+      for (const auto& path : pathsToLoadAll) {
+        if (path != filePath) {
+          pathsToLoad.push_back(path);
+        }
+      }
 
       // Erase the futures that are not in the paths to load
       for (auto it = _futures.begin(); it != _futures.end();) {

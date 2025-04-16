@@ -10,5 +10,5 @@ class Common {
   static inline const float DEFAULT_GLWIDGET_WIDTH_RATIO = 0.7f;
 
   static inline const int NUM_THREADS = 8;
-  static inline const int NUM_PRELOADED_IMAGES = 15;
+  static inline const int NUM_PRELOADED_IMAGES = 8;
 };

@@ -32,6 +32,7 @@ class MainWindow : public QMainWindow {
   void goChild();
   void goBack();
   void goForward();
+  void copyImageToClipboard();
 
   void quit(bool needConfirm = false);
 
@@ -46,6 +47,10 @@ class MainWindow : public QMainWindow {
   void on_actionBilinear_triggered();
   void on_actionBicubic_triggered();
   void on_actionLanczos4_triggered();
+
+ protected:
+  void dragEnterEvent(QDragEnterEvent *event) override;
+  void dropEvent(QDropEvent* event) override;
 
  public:
   MainWindow(QWidget *parent = nullptr);

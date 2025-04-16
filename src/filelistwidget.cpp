@@ -37,6 +37,13 @@ void FileListWidget::keyPressEvent(QKeyEvent* event) {
         emit signal_goChild();
       }
     }
+  } else if (event->matches(QKeySequence::Copy)) {
+    QListWidgetItem* item = currentItem();
+    if (item != nullptr && item->text() != Common::PATENT_DIR_REL_PATH) {
+      emit signal_copyImageToClipboard();
+      event->accept();
+      return;
+    }
   }
 
   QListWidget::keyPressEvent(event);

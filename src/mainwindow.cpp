@@ -1,9 +1,13 @@
 #include <common.h>
 #include <mainwindow.h>
 
+#include <QClipboard>
+#include <QEvent>
 #include <QFileDialog>
 #include <QFileIconProvider>
+#include <QGuiApplication>
 #include <QMessageBox>
+#include <QMimeData>
 #include <algorithm>
 #include <cctype>
 
@@ -20,6 +24,7 @@ MainWindow::MainWindow(QWidget* parent)
 
   setWindowIcon(QIcon(":/icons/appico.ico"));
   setWindowTitle(Common::WINDOW_TITLE);
+  setAcceptDrops(true);
 
   // Set splitter sizes
   const int currentWindowWidth = width();
@@ -43,6 +48,7 @@ MainWindow::MainWindow(QWidget* parent)
   connect(_ui->fileListWidget, &FileListWidget::signal_goChild, this, &MainWindow::goChild);
   connect(_ui->fileListWidget, &FileListWidget::signal_goBack, this, &MainWindow::goBack);
   connect(_ui->fileListWidget, &FileListWidget::signal_goForward, this, &MainWindow::goForward);
+  connect(_ui->fileListWidget, &FileListWidget::signal_copyImageToClipboard, this, &MainWindow::copyImageToClipboard);
 
   // ------------------------------------------------------------------------------------------
   // Action group
@@ -173,6 +179,32 @@ void MainWindow::goForward() {
   updateCurrentDir(_control->getCurrentDir());
 }
 
+void MainWindow::copyImageToClipboard() {
+  // Get the selected item
+  QListWidgetItem* currentItem = _ui->fileListWidget->currentItem();
+  if (currentItem == nullptr) {
+    return;
+  }
+
+  const auto& fileName = FileUtil::qStringToPath(currentItem->text());
+  const auto& currentDir = _control->getCurrentDir();
+  const auto& filePath = currentDir / fileName;
+
+  if (fs::exists(filePath) && fs::is_regular_file(filePath)) {
+    // Copy the image to the clipboard
+
+    QMimeData* mimeData = new QMimeData();
+
+    QList<QUrl> urls;
+    urls << QUrl::fromLocalFile(FileUtil::pathToQString(filePath));
+
+    mimeData->setUrls(urls);
+    mimeData->setText(FileUtil::pathToQString(filePath));
+    QGuiApplication::clipboard()->setMimeData(mimeData);
+    qDebug() << "File Url was copied to clipboard: " << FileUtil::pathToQString(filePath);
+  }
+}
+
 void MainWindow::quit(bool needConfirm) {
   if (needConfirm) {
     const auto ret = QMessageBox::question(this,
@@ -190,8 +222,45 @@ void MainWindow::quit(bool needConfirm) {
 }
 
 // ##############################################################################################################################
-// Slot functions
+// Event handlers
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+  if (event != nullptr && event->mimeData()->hasUrls()) {
+    event->acceptProposedAction();
+  }
+}
+
+void MainWindow::dropEvent(QDropEvent* event) {
+  if (event != nullptr && event->mimeData()->hasUrls()) {
+    const auto urls = event->mimeData()->urls();
+
+    for (const auto& url : urls) {
+      const auto filePath = FileUtil::qStringToPath(url.toLocalFile());
+      const auto dirPath = filePath.parent_path();
+
+      if (fs::exists(dirPath) && fs::is_directory(dirPath)) {
+        updateCurrentDir(dirPath);
+
+        // Focus on the dropped item
+        // Select the parent directory in the file list
+        const auto droppedItemName = FileUtil::pathToQString(filePath.filename());
+        const auto itemList = _ui->fileListWidget->findItems(droppedItemName, Qt::MatchExactly);
+        for (const auto& item : itemList) {
+          _ui->fileListWidget->setCurrentItem(item);
+          _ui->fileListWidget->scrollToItem(item);
+        }
+
+        break;
+      }
+    }
+  }
+
+  event->accept();
+}
+
 // ##############################################################################################################################
+// Slot functions
+
 void MainWindow::on_currentDirPath_returnPressed() {
   const auto dirPath = fs::absolute(FileUtil::qStringToPath(_ui->currentDirPath->text()));
   updateCurrentDir(dirPath);
