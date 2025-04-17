@@ -291,7 +291,7 @@ class Lanczos4ImageShader : public ImageShaderBase {
 #define PI 3.1415926525
 
 float ideal_sinc(float x) {
-  x = abs(x) + 1e-14;
+  x = x + 1e-14;
   return sin(x) / x;
 }
 
@@ -397,7 +397,7 @@ void main() {
     float y6 = max(0.0, min(1.0, pixelY6));
     float y7 = max(0.0, min(1.0, pixelY7));
 
-    // Calc color * weightX
+    // Calc color * weightX, ridiculously long
     vec4 tmpColor0 = texture(u_texture, vec2(x0, y0)) * weightX0 + texture(u_texture, vec2(x1, y0)) * weightX1 + texture(u_texture, vec2(x2, y0)) * weightX2 + texture(u_texture, vec2(x3, y0)) * weightX3 + texture(u_texture, vec2(x4, y0)) * weightX4 + texture(u_texture, vec2(x5, y0)) * weightX5 + texture(u_texture, vec2(x6, y0)) * weightX6 + texture(u_texture, vec2(x7, y0)) * weightX7;
     vec4 tmpColor1 = texture(u_texture, vec2(x0, y1)) * weightX0 + texture(u_texture, vec2(x1, y1)) * weightX1 + texture(u_texture, vec2(x2, y1)) * weightX2 + texture(u_texture, vec2(x3, y1)) * weightX3 + texture(u_texture, vec2(x4, y1)) * weightX4 + texture(u_texture, vec2(x5, y1)) * weightX5 + texture(u_texture, vec2(x6, y1)) * weightX6 + texture(u_texture, vec2(x7, y1)) * weightX7;
     vec4 tmpColor2 = texture(u_texture, vec2(x0, y2)) * weightX0 + texture(u_texture, vec2(x1, y2)) * weightX1 + texture(u_texture, vec2(x2, y2)) * weightX2 + texture(u_texture, vec2(x3, y2)) * weightX3 + texture(u_texture, vec2(x4, y2)) * weightX4 + texture(u_texture, vec2(x5, y2)) * weightX5 + texture(u_texture, vec2(x6, y2)) * weightX6 + texture(u_texture, vec2(x7, y2)) * weightX7;

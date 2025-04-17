@@ -118,7 +118,7 @@ void AsyncImageLoader::loadImageImpl(const fs::path& filePath, std::promise<Imag
     } else if (image.channels() == 3) {
       cv::cvtColor(image, rgbaImage, cv::COLOR_BGR2RGBA);
     } else if (image.channels() == 4) {
-      rgbaImage = image;
+      cv::cvtColor(image, rgbaImage, cv::COLOR_BGRA2RGBA);
     } else {
       qDebug() << "Unsupported image format";
       return;
@@ -143,7 +143,9 @@ void AsyncImageLoader::loadImageImpl(const fs::path& filePath, std::promise<Imag
       promise.set_value(imageData);                   // Set the value in the promise
     }
 
+#if defined(RVIEW_DEBUG_BUILD)
     qDebug() << "Image loaded:" << FileUtil::pathToQString(filePath);
+#endif
   } catch (...) {
     std::exception_ptr ep = std::current_exception();
     promise.set_exception(ep);
@@ -192,7 +194,6 @@ ImageData AsyncImageLoader::getImage(const fs::path& filePath) {
 
     if (_imageCache.find(filePath) != _imageCache.end()) {
       imageData = _imageCache.at(filePath);
-      qDebug() << "Image loaded from cache:" << filePath.string().c_str();
     }
   }
 
@@ -213,8 +214,6 @@ ImageData AsyncImageLoader::getImage(const fs::path& filePath) {
 
     if (future.valid()) {
       // If the future is valid, wait for it to be ready and get the result
-      qDebug() << "Waiting for image to load:" << filePath.string().c_str();
-
       imageData = future.get();  // Wait for the image to be loaded (blocking call)
 
       {
@@ -227,10 +226,6 @@ ImageData AsyncImageLoader::getImage(const fs::path& filePath) {
           _futures.erase(futureIt);  // Remove the future from the map
         }
       }
-
-      qDebug() << "Done.";
-    } else {
-      qDebug() << "Image will be loaded on the spot:" << filePath.string().c_str();
     }
   }
 
@@ -323,7 +318,6 @@ ImageData AsyncImageLoader::getImage(const fs::path& filePath) {
 
     if (future.valid()) {
       // Wait for the image to be loaded (blocking call)
-      qDebug() << "Waiting for image to load:" << filePath.string().c_str();
       imageData = future.get();
 
       {
@@ -336,8 +330,6 @@ ImageData AsyncImageLoader::getImage(const fs::path& filePath) {
           _futures.erase(futureIt);
         }
       }
-
-      qDebug() << "Done.";
     }
   }
 

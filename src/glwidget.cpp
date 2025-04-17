@@ -39,7 +39,7 @@ GLWidget::~GLWidget() {
 }
 
 void GLWidget::initializeGL() {
-  // ------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------
   // Initialize OpenGL functions
   _glFunctions = QOpenGLContext::currentContext()->functions();
   if (_glFunctions == nullptr) {
@@ -131,6 +131,8 @@ void GLWidget::initializeGL() {
   _texture->generateMipMaps();
   _texture->release();
 
+  // -----------------------------------------------------------------------------
+  // Initialize
   _oldWindowSize = glm::ivec2(width(), height());
 }
 
@@ -260,31 +262,27 @@ void GLWidget::wheelEvent(QWheelEvent *event) {
     return;
   }
 
-  // マウスホイールの回転量を取得（1ステップあたり15°、単位は度）
   const float degrees = event->angleDelta().y() / 8.0f;
   const float steps = degrees / 15.0f;
 
-  // 各ステップごとに1.1倍/0.9倍で拡大縮小する（複数ステップの場合は累乗する）
   float scaleFactor = std::pow(1.1f, steps);
 
-  // 小さくなりすぎないようにする
   const glm::vec2 currentSize = _rectBottomRight - _rectTopLeft;
   if (scaleFactor < 1.0f && (currentSize.x < 1.0 / width() || currentSize.y < 1.0 / height())) {
     scaleFactor = 1.0f;
   }
 
-  // 現在の画像表示領域の中心を計算
   const glm::vec2 center = (_rectBottomRight + _rectTopLeft) / 2.0f;
 
   _rectTopLeft = (_rectTopLeft - center) * scaleFactor;
   _rectBottomRight = (_rectBottomRight - center) * scaleFactor;
 
-  // 新しい中心を計算
+  // Translate the rectangle to the new center
   const glm::vec2 newCenter = (center - 0.5f) * scaleFactor + 0.5f;
   _rectTopLeft += newCenter;
   _rectBottomRight += newCenter;
 
-  // OpenGLウィジェットを更新
+  // Update the view
   update();
 
   event->accept();
@@ -295,37 +293,40 @@ void GLWidget::updateTexture(const cv::Mat &image) {
     return;
   }
 
-  makeCurrent();
+  {
+    makeCurrent();
 
-  // Upload the texture data
-  if (_textureSize.x != image.cols || _textureSize.y != image.rows) {
-    _textureSize.x = image.cols;
-    _textureSize.y = image.rows;
+    // Resize the texture if necessary
+    if (_textureSize.x != image.cols || _textureSize.y != image.rows) {
+      _textureSize.x = image.cols;
+      _textureSize.y = image.rows;
 
-    _texture->destroy();
-    _texture->create();
+      _texture->destroy();
+      _texture->create();
 
+      _texture->bind();
+      _texture->setFormat(QOpenGLTexture::RGBA32F);
+      _texture->setSize(_textureSize.x, _textureSize.y);
+      _texture->setMinificationFilter(QOpenGLTexture::Filter::NearestMipMapNearest);
+      _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
+      _texture->setAutoMipMapGenerationEnabled(true);
+      _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
+      _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
+      _texture->generateMipMaps();
+      _texture->release();
+    }
+
+    resetRectPosition();
+
+    // Upload the texture data
     _texture->bind();
-    _texture->setFormat(QOpenGLTexture::RGBA32F);
-    _texture->setSize(_textureSize.x, _textureSize.y);
-    _texture->setMinificationFilter(QOpenGLTexture::Filter::NearestMipMapNearest);
-    _texture->setMagnificationFilter(QOpenGLTexture::Filter::Nearest);
-    _texture->setAutoMipMapGenerationEnabled(true);
-    _texture->setWrapMode(QOpenGLTexture::ClampToEdge);
-    _texture->allocateStorage(QOpenGLTexture::RGBA, QOpenGLTexture::Float32);
-    _texture->generateMipMaps();
+    _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, image.data);
     _texture->release();
+
+    doneCurrent();
   }
 
-  resetRectPosition();
-
-  _texture->bind();
-  _texture->setData(QOpenGLTexture::RGBA, QOpenGLTexture::Float32, image.data);
-  _texture->release();
-
-  doneCurrent();
-
-  // Update
+  // Update the view
   update();
 }
 

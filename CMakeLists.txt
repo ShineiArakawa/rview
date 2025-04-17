@@ -7,11 +7,6 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 # --------------------------------------------------------------------
-# Options
-set(LIBEXIF_INCLUDE_DIRS "" CACHE PATH "Include directory for libexif")
-set(LIBEXIF_LIB_DIRS "" CACHE PATH "Library directory for libexif")
-
-# --------------------------------------------------------------------
 # C++ settings
 
 set(CMAKE_CXX_STANDARD 20)
@@ -59,17 +54,35 @@ find_package(
 # Find OpenCV
 find_package(OpenCV REQUIRED)
 
-# Find libexif
-if(LIBEXIF_INCLUDE_DIRS AND LIBEXIF_LIB_DIRS)
-    message(STATUS "Using libexif")
-    set(LIBEXIF_LIBRARIES libexif.a)
-    add_definitions(-DWITH_LIBEXIF)
-endif()
-
 # --------------------------------------------------------------------
 # Third party libraries
+
+# tinyxml2
 add_subdirectory(
-    "third_party"
+    third_party/tinyxml2-11.0.0
+)
+
+set(
+    TINYXML2_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyxml2-11.0.0
+)
+set(
+    TINYXML2_LIBRARIES
+    tinyxml2
+)
+
+# tinyexif
+add_subdirectory(
+    third_party/TinyEXIF
+)
+
+set(
+    TINYEXIF_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/TinyEXIF
+)
+set(
+    TINYEXIF_LIBRARIES
+    TinyEXIFstatic
 )
 
 # --------------------------------------------------------------------
@@ -102,6 +115,7 @@ set(
     # -------------------------------------------------------
     # image
     include/image.h
+    src/image.cpp
     # --------------------------------------------------------
     # file util
     include/fileutil.h
@@ -142,14 +156,13 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
             "Resources"
         )
 
-        
         qt_add_executable(
             ${PROJECT_NAME}
             MACOSX_BUNDLE
             MANUAL_FINALIZATION
             ${PROJECT_SOURCES}
             ${app_icon_macos}
-            )
+        )
     else()
         qt_add_executable(
             ${PROJECT_NAME}
@@ -184,16 +197,9 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
     ${OpenCV_INCLUDE_DIRS}
-    ${LIBEXIF_INCLUDE_DIRS}
+    ${TINYXML2_INCLUDE_DIRS}
+    ${TINYEXIF_INCLUDE_DIRS}
 )
-
-if(LIBEXIF_INCLUDE_DIRS)
-    target_link_directories(
-        ${PROJECT_NAME}
-        PRIVATE
-        ${LIBEXIF_LIB_DIRS}
-    )
-endif()
 
 target_link_libraries(
     ${PROJECT_NAME}
@@ -203,7 +209,8 @@ target_link_libraries(
     Qt${QT_VERSION_MAJOR}::OpenGLWidgets
     Qt${QT_VERSION_MAJOR}::Core
     ${OpenCV_LIBS}
-    ${LIBEXIF_LIBRARIES}
+    ${TINYXML2_LIBRARIES}
+    ${TINYEXIF_LIBRARIES}
 )
 
 
@@ -261,7 +268,8 @@ message(STATUS "# ")
 message(STATUS "#  [Cache Variables]")
 message(STATUS "#    OpenCV_INCLUDE_DIRS                  : ${OpenCV_INCLUDE_DIRS}")
 message(STATUS "#    OpenCV_LIBS                          : ${OpenCV_LIBS}")
-message(STATUS "#    LIBEXIF_INCLUDE_DIRS                 : ${LIBEXIF_INCLUDE_DIRS}")
-message(STATUS "#    LIBEXIF_LIB_DIRS                     : ${LIBEXIF_LIB_DIRS}")
-message(STATUS "#    LIBEXIF_LIBRARIES                    : ${LIBEXIF_LIBRARIES}")
+message(STATUS "#    TINYXML2_INCLUDE_DIRS                : ${TINYXML2_INCLUDE_DIRS}")
+message(STATUS "#    TINYXML2_LIBRARIES                   : ${TINYXML2_LIBRARIES}")
+message(STATUS "#    TINYEXIF_INCLUDE_DIRS                : ${TINYEXIF_INCLUDE_DIRS}")
+message(STATUS "#    TINYEXIF_LIBRARIES                   : ${TINYEXIF_LIBRARIES}")
 message(STATUS "# =======================================================================================================")

@@ -23,7 +23,8 @@ void FileListModelBase::setCurrentDir(const fs::path& dirPath) {
       std::fill(_dirPathHistory.begin() + _cursor + 1, _dirPathHistory.end(), fs::path());
     }
 
-    _cursor++;
+    // Move the cursor forward
+    ++_cursor;
   } else {
     // If the history is full, remove the oldest entry
     std::rotate(_dirPathHistory.begin(), _dirPathHistory.begin() + 1, _dirPathHistory.end());
@@ -42,7 +43,8 @@ fs::path FileListModelBase::getCurrentDir() const {
 
 void FileListModelBase::goBack() {
   if (_cursor > 0) {  // Check if the previous index is within bounds
-    _cursor--;
+    // Move the cursor back
+    --_cursor;
   }
 }
 
@@ -50,7 +52,7 @@ void FileListModelBase::goForward() {
   if (_cursor < static_cast<int>(_dirPathHistory.size()) - 1  // Check if the next index is within bounds
       && _dirPathHistory[_cursor + 1] != fs::path()           // Check if the next path is valid
   ) {
-    _cursor++;
+    ++_cursor;
   }
 }
 
@@ -99,9 +101,7 @@ bool FileListModel::naturalCompare(const fs::path& a, const fs::path& b) {
       if (aNum != bNum) {
         return aNum < bNum;
       }
-    }
-    // 数字以外の場合は、通常の文字として比較
-    else if (*ai != *bi) {
+    } else if (*ai != *bi) {  // If not a digit, compare the characters directly
       return *ai < *bi;
     } else {
       ++ai;
@@ -109,18 +109,23 @@ bool FileListModel::naturalCompare(const fs::path& a, const fs::path& b) {
     }
   }
 
-  return aStr.size() < bStr.size();  // 長さで決まる場合も考慮
+  return aStr.size() < bStr.size();  // If one string is a prefix of the other, the shorter one is "less"
 }
 
 std::vector<fs::path> FileListModel::getDirList() const {
   std::vector<fs::path> dirList;
   const auto dirPath = getCurrentDir();
 
-  for (const auto& entry : fs::directory_iterator(dirPath)) {
-    const fs::path& path = entry.path();
-    if (fs::is_directory(path)) {
-      dirList.push_back(path);
+  try {
+    for (const auto& entry : fs::directory_iterator(dirPath)) {
+      const fs::path& path = entry.path();
+      if (fs::is_directory(path)) {
+        dirList.push_back(path);
+      }
     }
+  } catch (const fs::filesystem_error& e) {
+    // Handle the error (e.g., log it, throw an exception, etc.)
+    qCritical() << "Error reading directory:" << e.what();
   }
 
   std::sort(dirList.begin(), dirList.end(), FileListModel::naturalCompare);
@@ -132,11 +137,16 @@ std::vector<fs::path> FileListModel::getOnlyFileList() const {
   std::vector<fs::path> fileList;
   const auto dirPath = getCurrentDir();
 
-  for (const auto& entry : fs::directory_iterator(dirPath)) {
-    const fs::path& path = entry.path();
-    if (fs::is_regular_file(path)) {
-      fileList.push_back(path);
+  try {
+    for (const auto& entry : fs::directory_iterator(dirPath)) {
+      const fs::path& path = entry.path();
+      if (fs::is_regular_file(path)) {
+        fileList.push_back(path);
+      }
     }
+  } catch (const fs::filesystem_error& e) {
+    // Handle the error (e.g., log it, throw an exception, etc.)
+    qCritical() << "Error reading directory:" << e.what();
   }
 
   std::sort(fileList.begin(), fileList.end(), FileListModel::naturalCompare);
